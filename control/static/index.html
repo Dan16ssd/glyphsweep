@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GlyphSweep</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Noto+Sans+Lao:wght@400;700&family=JetBrains+Mono&display=swap" rel="stylesheet">
+<style>
+  :root { --bg:#f7f4ef; --card:#fff; --ink:#1f1a17; --mute:#6f6660; --line:#e6dfd6; --acc:#c2410c; --ok:#15803d; --bad:#b91c1c; --warn:#b45309; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.55 Inter, "Noto Sans Lao", system-ui, sans-serif; }
+  .wrap { max-width:1180px; margin:0 auto; padding:0 20px 60px; }
+  header { padding:36px 0 18px; }
+  h1 { font-size:34px; margin:0; letter-spacing:-.02em; }
+  h1 span { color:var(--acc); }
+  .sub { color:var(--mute); margin:6px 0 0; font-size:17px; }
+  .sub b { color:var(--ink); }
+  form { display:flex; gap:10px; flex-wrap:wrap; background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px; margin-top:18px; }
+  input[type=url] { flex:1 1 320px; padding:11px 12px; border:1px solid var(--line); border-radius:9px; font:inherit; }
+  select, button { padding:11px 14px; border-radius:9px; border:1px solid var(--line); font:inherit; background:#fff; }
+  button.primary { background:var(--ink); color:#fff; border-color:var(--ink); font-weight:600; cursor:pointer; }
+  button.demo { background:#fff7ed; border-color:#fdba74; color:#9a3412; font-weight:600; cursor:pointer; }
+  button:disabled { opacity:.5; cursor:wait; }
+  .grid { display:grid; grid-template-columns: 330px 1fr; gap:18px; margin-top:18px; }
+  @media (max-width: 860px) { .grid { grid-template-columns: 1fr; } }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:16px; }
+  .card h2 { font-size:13px; text-transform:uppercase; letter-spacing:.08em; color:var(--mute); margin:0 0 10px; }
+  .ev { display:flex; gap:10px; padding:7px 0; border-bottom:1px dashed var(--line); font-size:13.5px; }
+  .ev:last-child { border-bottom:0; }
+  .dot { width:9px; height:9px; border-radius:50%; margin-top:6px; flex:none; background:var(--mute); }
+  .dot.done { background:var(--ok); } .dot.warn { background:var(--warn); } .dot.error { background:var(--bad); }
+  .dot.running { background:var(--acc); animation:p 1s infinite; } @keyframes p { 50% { opacity:.3; } }
+  .step { font-weight:600; text-transform:uppercase; font-size:11px; letter-spacing:.06em; color:var(--mute); }
+  .score { display:flex; align-items:baseline; gap:12px; }
+  .score .n { font-size:46px; font-weight:700; letter-spacing:-.03em; }
+  .score .arrow { color:var(--mute); font-size:24px; }
+  .tabs { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px; }
+  .tabs button { padding:7px 12px; font-size:13px; cursor:pointer; }
+  .tabs button.on { background:var(--ink); color:#fff; border-color:var(--ink); }
+  table { width:100%; border-collapse:collapse; font-size:13.5px; }
+  th, td { text-align:left; padding:7px 6px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--mute); }
+  .sev { font-size:11px; font-weight:700; padding:2px 7px; border-radius:20px; }
+  .sev.high { background:#fee2e2; color:var(--bad); } .sev.medium { background:#ffedd5; color:var(--warn); } .sev.low { background:#e5e7eb; }
+  .lao { font-family:"Noto Sans Lao", sans-serif; }
+  .fixed { color:var(--ok); font-weight:700; } .open { color:var(--bad); font-weight:700; } .src { color:var(--mute); }
+  .shots { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width: 700px) { .shots { grid-template-columns:1fr; } }
+  .shot { position:relative; border:1px solid var(--line); border-radius:10px; overflow:hidden; background:#fff; }
+  .shot img { width:100%; display:block; }
+  .shot .box { position:absolute; border:2px solid #e11d48; background:rgba(225,29,72,.07); }
+  .shot .lbl { position:absolute; top:6px; left:6px; background:rgba(31,26,23,.85); color:#fff; font-size:12px; padding:3px 8px; border-radius:6px; }
+  pre { background:#1f1a17; color:#f5e9dc; padding:12px; border-radius:10px; overflow:auto; font:12.5px/1.5 "JetBrains Mono", monospace; max-height:340px; }
+  .kv { display:grid; grid-template-columns:150px 1fr; gap:4px 12px; font-size:13px; }
+  .kv div:nth-child(odd) { color:var(--mute); }
+  .deny { color:var(--bad); font-family:"JetBrains Mono", monospace; font-size:12.5px; }
+  .allow { color:var(--ok); font-family:"JetBrains Mono", monospace; font-size:12.5px; }
+  .pill { display:inline-block; font-size:12px; padding:2px 8px; border-radius:20px; background:#ecfdf5; color:var(--ok); margin:2px 4px 2px 0; }
+  .pill.bad { background:#fef2f2; color:var(--bad); }
+  .muted { color:var(--mute); }
+  .empty { color:var(--mute); padding:30px 0; text-align:center; }
+  .sbx { border:1px solid var(--line); border-radius:10px; padding:12px; margin-bottom:10px; }
+  .why { color:var(--mute); font-size:13px; margin-top:16px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Glyph<span>Sweep</span></h1>
+    <p class="sub">Your site says it supports <b class="lao">ພາສາລາວ</b>. Does it? An agent that audits Lao, Thai, Khmer and Burmese rendering in a throwaway sandbox, then <b>proves</b> its fix.</p>
+  </header>
+
+  <form id="f">
+    <input type="url" id="url" placeholder="https://your-site.la/" required>
+    <select id="script">
+      <option value="lao">Lao ລາວ</option><option value="thai">Thai ไทย</option>
+      <option value="khmer">Khmer ខ្មែរ</option><option value="myanmar">Burmese မြန်မာ</option>
+    </select>
+    <button class="primary" id="go">Sweep site</button>
+    <button class="demo" type="button" id="demo">Run hostile demo shop</button>
+  </form>
+
+  <div class="grid">
+    <div>
+      <div class="card" id="scorecard" hidden>
+        <h2>Script readiness</h2>
+        <div class="score"><span class="n" id="sb">–</span><span class="arrow">→</span><span class="n" id="sa" style="color:var(--ok)">–</span></div>
+        <div class="muted" id="scoreNote"></div>
+      </div>
+      <div class="card" style="margin-top:14px">
+        <h2>Agent timeline</h2>
+        <div id="events"><div class="empty">Plan → dispatch to sandbox → verify with vision → fix → prove in a fresh sandbox.</div></div>
+      </div>
+      <p class="why" id="health"></p>
+    </div>
+    <div class="card">
+      <div class="tabs" id="tabs">
+        <button data-t="findings" class="on">Findings</button>
+        <button data-t="shots">Before / after</button>
+        <button data-t="device">Bare device + OCR</button>
+        <button data-t="patch">Fix</button>
+        <button data-t="contain">Containment</button>
+      </div>
+      <div id="view"><div class="empty">Run a sweep to see results.</div></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const CHECK = {
+  html_lang: "Wrong / missing lang", untranslated: "Untranslated UI", text_clipped: "Clipped glyphs",
+  tight_line_height: "Line height too tight", letter_spacing: "Letter-spacing on script", syllable_break: "Mid-syllable breaks",
+  font_fallback: "No font for script",
+};
+const SOURCE_ONLY = new Set(["html_lang", "untranslated"]);
+let job = null, tab = "findings", timer = null;
+
+fetch("/api/health").then(r => r.json()).then(h => {
+  $("#health").textContent = `Sandbox runtime: ${h.runtime} · model: ${h.model_configured ? h.model + " on Vultr Serverless Inference" : "not configured (deterministic mode)"}`;
+}).catch(() => {});
+
+document.querySelectorAll("#tabs button").forEach(b => b.onclick = () => {
+  tab = b.dataset.t; document.querySelectorAll("#tabs button").forEach(x => x.classList.toggle("on", x === b)); render();
+});
+
+async function start(body) {
+  $("#go").disabled = $("#demo").disabled = true;
+  const r = await fetch("/api/jobs", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  if (!r.ok) { alertBox((await r.json()).detail || "Request failed"); $("#go").disabled = $("#demo").disabled = false; return; }
+  const { id } = await r.json();
+  history.replaceState(null, "", "#" + id);
+  poll(id);
+}
+function alertBox(msg) { $("#events").innerHTML = `<div class="ev"><span class="dot error"></span><div>${esc(msg)}</div></div>`; }
+$("#f").onsubmit = (e) => { e.preventDefault(); start({ url: $("#url").value, script: $("#script").value }); };
+$("#demo").onclick = () => { $("#script").value = "lao"; start({ url: "", script: "lao", demo: true }); };
+
+async function poll(id) {
+  clearTimeout(timer);
+  const r = await fetch("/api/jobs/" + id);
+  if (r.ok) { job = await r.json(); render(); }
+  if (!job || !["done", "error"].includes(job.status)) timer = setTimeout(() => poll(id), 1500);
+  else $("#go").disabled = $("#demo").disabled = false;
+}
+
+function render() {
+  if (!job) return;
+  $("#events").innerHTML = job.events.map(e => `<div class="ev"><span class="dot ${e.status}"></span><div><div class="step">${esc(e.step)}</div>${esc(e.msg)}</div></div>`).join("")
+    + (["done", "error"].includes(job.status) ? "" : `<div class="ev"><span class="dot running"></span><div class="muted">working…</div></div>`);
+  if (job.score) {
+    $("#scorecard").hidden = false; $("#sb").textContent = job.score.before; $("#sa").textContent = job.score.after;
+    const b = job.before || [], fixed = b.filter(f => f.fixed).length, src = b.filter(f => !f.fixed && SOURCE_ONLY.has(f.check)).length;
+    $("#scoreNote").textContent = `${fixed}/${b.length} issues proven fixed by CSS · ${src} need an HTML/content change`;
+  }
+  const v = $("#view");
+  if (tab === "findings") v.innerHTML = findings();
+  if (tab === "shots") v.innerHTML = shots();
+  if (tab === "device") v.innerHTML = device();
+  if (tab === "patch") v.innerHTML = patch();
+  if (tab === "contain") v.innerHTML = contain();
+}
+
+function findings() {
+  const b = job.before || [];
+  if (!b.length) return `<div class="empty">${job.status === "done" ? "No issues found 🎉" : "Waiting for the first sandbox…"}</div>`;
+  const inj = (job.injections || []).length ? `<p class="pill bad">⚠ ${job.injections.length} prompt-injection string(s) on the page were treated as data, not instructions</p>` : "";
+  return inj + `<table><tr><th>Issue</th><th>Sev</th><th>Where / text</th><th>Vision check</th><th>After fix</th></tr>` + b.map(f => `
+    <tr><td>${esc(CHECK[f.check] || f.check)}</td><td><span class="sev ${f.severity}">${f.severity}</span></td>
+    <td><div class="lao">${esc(f.text || f.detail?.found || "")}</div><div class="muted" style="font-size:12px">${esc(new URL(f.page).pathname)} · ${esc(short(f.detail))}</div></td>
+    <td>${f.vision ? `${f.vision.visible === "yes" ? "👁 visible" : f.vision.visible === "no" ? "not visible" : "unsure"}<div class="muted" style="font-size:12px">${esc(f.vision.note)}</div>` : '<span class="muted">–</span>'}</td>
+    <td>${f.fixed === undefined ? '<span class="muted">…</span>' : f.fixed ? '<span class="fixed">✓ fixed</span>' : SOURCE_ONLY.has(f.check) ? '<span class="src">needs source</span>' : '<span class="open">✗ open</span>'}</td></tr>`).join("") + `</table>`;
+}
+function short(d) {
+  if (!d) return "";
+  if (d.ratio) return `line-height ${d.ratio}×`;
+  if (d.inkSpillTopPx !== undefined) return `glyphs spill ${d.inkSpillTopPx || d.inkSpillBottomPx}px outside box`;
+  if (d.letterSpacingPx) return `letter-spacing ${d.letterSpacingPx}px`;
+  if (d.wordBreak) return `word-break: ${d.wordBreak}`;
+  if (d.primary) return `font "${d.primary}" has no glyphs; webfont shipped: ${d.shipsWebfont}`;
+  if (d.expected) return `lang="${d.found}", expected "${d.expected}"`;
+  return "";
+}
+function shotHtml(img, label, boxes) {
+  if (!img) return `<div class="shot"><div class="empty">${label}: pending</div></div>`;
+  const W = img.width, H = img.height;
+  const bx = (boxes || []).filter(f => f.bbox && f.bbox.w > 0 && f.bbox.y < H).map(f =>
+    `<div class="box" title="${esc(CHECK[f.check])}" style="left:${f.bbox.x / W * 100}%;top:${f.bbox.y / H * 100}%;width:${f.bbox.w / W * 100}%;height:${f.bbox.h / H * 100}%"></div>`).join("");
+  return `<div class="shot"><img src="${img.src}" alt="${esc(label)}">${bx}<span class="lbl">${esc(label)}</span></div>`;
+}
+function shots() {
+  const pages = job.pages || [];
+  if (!pages.length) return `<div class="empty">Waiting for screenshots…</div>`;
+  return pages.map((p, i) => {
+    const before = (job.before || []).filter(f => f.page === p.url);
+    const after = (job.after || []).filter(f => f.page === p.url);
+    const ap = (job.after_pages || []).find(x => x.url === p.url);
+    return `<h3 style="font-size:14px;margin:6px 0">${esc(p.title || p.url)} <span class="muted">${esc(p.url)}</span></h3>
+      <div class="shots">${shotHtml(p.image, `before · ${before.length} issues`, before)}${shotHtml(ap && ap.image, `after patch · ${after.length} left`, after)}</div>`;
+  }).join("<br>");
+}
+function ocrTable(o) {
+  if (!o || !o.length) return '<p class="muted">OCR not available.</p>';
+  const avg = o.reduce((a, x) => a + x.cer, 0) / o.length;
+  return `<p><b>Mean OCR character error rate: ${(avg * 100).toFixed(1)}%</b></p><table><tr><th>DOM text</th><th>What OCR read from pixels</th><th>CER</th></tr>` +
+    o.map(x => `<tr><td class="lao">${esc(x.dom.slice(0, 60))}</td><td class="lao">${esc(x.ocr.slice(0, 60))}</td><td>${(x.cer * 100).toFixed(0)}%</td></tr>`).join("") + `</table>`;
+}
+function device() {
+  const b = job.bare_before, a = job.bare_after;
+  if (!b) return `<div class="empty">Waiting for the bare-device render…</div>`;
+  return `<p class="muted">Same page rendered on a simulated device with <b>no system font</b> for the script (many older Android phones, kiosks, Linux PCs). If the site doesn't ship a webfont, readers see empty boxes. Tesseract OCR reads the pixels back and compares them with the DOM text.</p>
+    <div class="shots">${shotHtml(b.image, "bare device · before")}${shotHtml(a && a.image, "bare device · after patch")}</div>
+    <div class="shots" style="margin-top:12px"><div>${ocrTable(b.ocr)}</div><div>${ocrTable(a && a.ocr)}</div></div>`;
+}
+function patch() {
+  const p = job.patch, fx = (job.model || {}).fix || {};
+  if (!p) return `<div class="empty">The fix appears after verification.</div>`;
+  const tr = (fx.translations || []).map(t => `<tr><td>${esc(t.original)}</td><td class="lao">${esc(t.translated)}</td></tr>`).join("");
+  return `<p>CSS patch written by <b>${p.source === "model" ? "the model (sanitized)" : "the deterministic fixer"}</b>, injected into a fresh sandbox and re-measured:</p>
+    <pre>${esc(p.css || "(none)")}</pre>
+    ${fx.sanitizer && fx.sanitizer.length ? `<p class="pill bad">Sanitizer: ${esc(fx.sanitizer.join(", "))}</p>` : ""}
+    ${tr ? `<h3 style="font-size:14px">Suggested translations</h3><table><tr><th>Original</th><th>Translation</th></tr>${tr}</table>` : ""}
+    ${(fx.source_changes || []).length ? `<h3 style="font-size:14px">Needs a source change</h3><ul>${fx.source_changes.map(s => `<li>${esc(s)}</li>`).join("")}</ul>` : ""}`;
+}
+function contain() {
+  const c = job.containment || [];
+  if (!c.length) return `<div class="empty">No sandbox has run yet.</div>`;
+  const inj = (job.model?.verify?.injection_attempts || []).concat(job.model?.fix?.injection_attempts || []);
+  return `<p>Every stage runs in a new sandbox that is destroyed afterwards. The sandbox has no API keys and no route to the internet except a per-job proxy that only allows the target host and Google Fonts.</p>` +
+    c.map((e, i) => `<div class="sbx"><b>Sandbox #${i + 1} · ${esc(e.stage)}</b> <span class="muted">${esc(e.run_id)} · ${e.seconds}s</span><br>
+      <span class="pill ${e.runtime === "runsc" ? "" : "bad"}">runtime: ${esc(e.runtime)}${e.runtime === "runsc" ? " (gVisor)" : ""}</span>
+      <span class="pill ${e.destroyed ? "" : "bad"}">${e.destroyed ? "destroyed ✓" : "NOT destroyed"}</span>
+      <span class="pill">exit ${esc(e.exit_code)}</span>${e.timed_out ? '<span class="pill bad">timeout kill</span>' : ""}${e.oom_killed ? '<span class="pill bad">OOM</span>' : ""}
+      <div class="kv" style="margin-top:8px">${Object.entries(e.limits || {}).map(([k, v]) => `<div>${esc(k)}</div><div>${esc(v)}</div>`).join("")}</div>
+      <div style="margin-top:8px"><b>Egress allowed:</b> ${(e.egress?.allowed || []).map(a => `<span class="allow">${esc(a)}</span>`).join(", ") || '<span class="muted">none</span>'}</div>
+      <div><b>Egress blocked (${(e.egress?.denied || []).length}):</b><br>${(e.egress?.denied || []).map(d => `<span class="deny">✗ ${esc(d.host)}:${esc(d.port)} — ${esc(d.reason)}</span>`).join("<br>") || '<span class="muted">none</span>'}</div>
+    </div>`).join("") +
+    ((job.injections || []).length ? `<div class="sbx"><b>Prompt injection on page</b><br>${job.injections.map(x => `<div class="deny">“${esc(x.text)}”</div>`).join("")}
+      <p class="muted">Passed to the model only inside &lt;untrusted&gt; tags. Findings come from deterministic detectors, so the model cannot delete them; its CSS goes through a sanitizer that rejects any URL except Google Fonts.${inj.length ? " The model itself flagged: " + esc(JSON.stringify(inj)) : ""}</p></div>` : "");
+}
+
+if (location.hash.length > 1) poll(location.hash.slice(1));
+</script>
+</body>
+</html>
