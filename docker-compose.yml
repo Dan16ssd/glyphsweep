@@ -8,9 +8,24 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - gsdata:/data
+    networks: [gs-egress]
+    restart: unless-stopped
+
+  # Hostile demo shop in its OWN static container: hostile JS in the sandbox can never reach
+  # the control plane. Read-only, unprivileged, no Docker socket, no secrets.
+  demo:
+    image: python:3.12-slim
+    command: ["python", "-m", "http.server", "8000", "--directory", "/srv", "--bind", "0.0.0.0"]
+    volumes:
+      - ./control/demo:/srv/demo:ro
+    read_only: true
+    user: "65534:65534"
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 64m
     networks:
       gs-egress:
-        aliases: [glyphsweep-demo]   # bundled demo site, reachable by the per-job proxy
+        aliases: [glyphsweep-demo]
     restart: unless-stopped
 
   # Build-only images; the control plane starts one of each per job stage.

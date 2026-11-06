@@ -184,7 +184,8 @@ function findings() {
     <tr><td>${esc(CHECK[f.check] || f.check)}</td><td><span class="sev ${f.severity}">${f.severity}</span></td>
     <td><div class="lao">${esc(f.text || f.detail?.found || "")}</div><div class="muted" style="font-size:12px">${esc(new URL(f.page).pathname)} · ${esc(short(f.detail))}</div></td>
     <td>${f.vision ? `${f.vision.visible === "yes" ? "👁 visible" : f.vision.visible === "no" ? "not visible" : "unsure"}<div class="muted" style="font-size:12px">${esc(f.vision.note)}</div>` : '<span class="muted">–</span>'}</td>
-    <td>${f.fixed === undefined ? '<span class="muted">…</span>' : f.fixed ? '<span class="fixed">✓ fixed</span>' + (f.proof ? `<div class="muted" style="font-size:12px">${esc(f.proof)}</div>` : "") : SOURCE_ONLY.has(f.check) ? '<span class="src">needs source</span>' : '<span class="open">✗ open</span>'}</td></tr>`).join("") + `</table>`;
+    <td>${f.fixed === undefined ? '<span class="muted">…</span>' : f.fixed ? '<span class="fixed">✓ fixed</span>' + (f.proof ? `<div class="muted" style="font-size:12px">${esc(f.proof)}</div>` : "")
+      + (f.vision_after ? `<div class="muted" style="font-size:12px">${f.vision_after.visible === "yes" ? "⚠ vision: still visible" : f.vision_after.visible === "no" ? "👁 vision: looks fixed" : "vision: unsure"}</div>` : ""): SOURCE_ONLY.has(f.check) ? '<span class="src">needs source</span>' : '<span class="open">✗ open</span>'}</td></tr>`).join("") + `</table>`;
 }
 function pct(x) { return x == null ? "–" : (x * 100).toFixed(0) + "%"; }
 function short(d) {

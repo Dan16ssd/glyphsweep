@@ -270,6 +270,10 @@ def run_job(job):
                                        if f["page"] == p0 and f.get("fixed") and f["bbox"]["w"] > 0]
                         va = llm.verify(script, fixed_boxes[:10], img)
                         job["model"]["verify_after"] = va
+                        by_id = {x["id"]: x for x in va["verdicts"]}
+                        for f in before:
+                            if f["page"] == p0 and f["id"] in by_id:
+                                f["vision_after"] = by_id[f["id"]]
                         still = sum(1 for x in va["verdicts"] if x["visible"] == "yes")
                         event(job, "verify", "done", f"Vision re-check of the patched page: {still}/{len(va['verdicts'])} "
                               "previously boxed problems still look visible")

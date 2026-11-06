@@ -29,7 +29,7 @@ docker info --format '{{json .Runtimes}}' | grep -q runsc && echo "gVisor runtim
 
 [ -f .env ] || cp .env.example .env
 docker compose --profile build build
-docker compose up -d control
+docker compose up -d control demo
 
 if command -v ufw >/dev/null; then ufw allow 22/tcp; ufw allow 80/tcp; ufw --force enable; fi
 echo "GlyphSweep is up: http://$(curl -s https://api.ipify.org)/"
