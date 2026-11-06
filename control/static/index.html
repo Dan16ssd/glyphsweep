@@ -259,6 +259,7 @@ function contain() {
 }
 
 if (location.hash.length > 1) poll(location.hash.slice(1));
+window.addEventListener("hashchange", () => { if (location.hash.length > 1 && (!job || job.id !== location.hash.slice(1))) { job = null; poll(location.hash.slice(1)); } });
 </script>
 </body>
 </html>
