@@ -101,6 +101,7 @@ async def handle(reader, writer):
         host, _, port = target.rpartition(":")
         port = int(port or 443)
         rest = b""
+        path = ""
     else:
         # absolute-form: http://host[:port]/path
         if not target.startswith("http://"):
@@ -109,7 +110,12 @@ async def handle(reader, writer):
         host, _, port = hp.partition(":")
         port = int(port or 80)
         path = "/" + target[7:].split("/", 1)[1] if "/" in target[7:] else "/"
-        rest = head.replace(target.encode(), path.encode(), 1)
+        # One request per upstream connection, so EVERY request is checked and logged
+        # (no keep-alive piggy-backing past the policy).
+        lines = head.decode("latin-1").split("\r\n")
+        lines[0] = f"{method} {path} HTTP/1.1"
+        lines = [l for l in lines if l and not l.lower().startswith(("connection:", "proxy-connection:", "keep-alive:", "proxy-authorization:"))]
+        rest = ("\r\n".join(lines) + "\r\nConnection: close\r\n\r\n").encode("latin-1")
 
     host = host.strip("[]")
     if port not in ALLOWED_PORTS:
@@ -121,6 +127,9 @@ async def handle(reader, writer):
     except Exception as e:  # noqa: BLE001
         return await deny(writer, host, port, f"dns failure {e}", 502)
     if not ip and host.lower() in INTERNAL_OK:
+        # The bundled demo lives on the control plane: only its static /demo/ files, GET only.
+        if method.upper() != "GET" or not path.startswith("/demo/"):
+            return await deny(writer, host, port, f"internal host: only GET /demo/* allowed (got {method} {path[:40]})")
         ip = [i[4][0] for i in await asyncio.get_running_loop().getaddrinfo(host, port, type=socket.SOCK_STREAM)]
     elif not ip:
         return await deny(writer, host, port, why)

@@ -62,6 +62,9 @@
   .empty { color:var(--mute); padding:30px 0; text-align:center; }
   .sbx { border:1px solid var(--line); border-radius:10px; padding:12px; margin-bottom:10px; }
   .why { color:var(--mute); font-size:13px; margin-top:16px; }
+  a.dl { font-size:13px; padding:6px 10px; border:1px solid var(--line); border-radius:8px; color:var(--ink); text-decoration:none; background:#fff; }
+  a.dl:hover { border-color:var(--ink); }
+  .probe { font-family:"JetBrains Mono", monospace; font-size:12.5px; }
 </style>
 </head>
 <body>
@@ -119,7 +122,7 @@ const SOURCE_ONLY = new Set(["html_lang", "untranslated"]);
 let job = null, tab = "findings", timer = null;
 
 fetch("/api/health").then(r => r.json()).then(h => {
-  $("#health").textContent = `Sandbox runtime: ${h.runtime} · model: ${h.model_configured ? h.model + " on Vultr Serverless Inference" : "not configured (deterministic mode)"}`;
+  $("#health").textContent = `Sandbox runtime: ${h.runtime} · model: ${h.model_configured ? h.model + " (vision: " + h.vision_model + ") on Vultr Serverless Inference" : "not configured (deterministic mode)"}`;
 }).catch(() => {});
 
 document.querySelectorAll("#tabs button").forEach(b => b.onclick = () => {
@@ -128,8 +131,12 @@ document.querySelectorAll("#tabs button").forEach(b => b.onclick = () => {
 
 async function start(body) {
   $("#go").disabled = $("#demo").disabled = true;
-  const r = await fetch("/api/jobs", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-  if (!r.ok) { alertBox((await r.json()).detail || "Request failed"); $("#go").disabled = $("#demo").disabled = false; return; }
+  let r;
+  try {
+    r = await fetch("/api/jobs", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  } catch (e) { alertBox("Network error: " + e.message); $("#go").disabled = $("#demo").disabled = false; return; }
+  if (!r.ok) { let d = "Request failed"; try { d = (await r.json()).detail || d; } catch (e) {} alertBox(d); $("#go").disabled = $("#demo").disabled = false; return; }
+  job = null;
   const { id } = await r.json();
   history.replaceState(null, "", "#" + id);
   poll(id);
@@ -138,11 +145,14 @@ function alertBox(msg) { $("#events").innerHTML = `<div class="ev"><span class="
 $("#f").onsubmit = (e) => { e.preventDefault(); start({ url: $("#url").value, script: $("#script").value }); };
 $("#demo").onclick = () => { $("#script").value = "lao"; start({ url: "", script: "lao", demo: true }); };
 
-async function poll(id) {
+async function poll(id, fails = 0) {
   clearTimeout(timer);
-  const r = await fetch("/api/jobs/" + id);
-  if (r.ok) { job = await r.json(); render(); }
-  if (!job || !["done", "error"].includes(job.status)) timer = setTimeout(() => poll(id), 1500);
+  let r = null;
+  try { r = await fetch("/api/jobs/" + id); } catch (e) {}
+  if (r && r.status === 404) { alertBox("That sweep no longer exists."); $("#go").disabled = $("#demo").disabled = false; return; }
+  if (r && r.ok) { job = await r.json(); render(); fails = 0; } else fails++;
+  if (fails > 20) { alertBox("Lost contact with the server."); $("#go").disabled = $("#demo").disabled = false; return; }
+  if (!job || !["done", "error"].includes(job.status)) timer = setTimeout(() => poll(id, fails), 1500);
   else $("#go").disabled = $("#demo").disabled = false;
 }
 
@@ -153,7 +163,10 @@ function render() {
   if (job.score) {
     $("#scorecard").hidden = false; $("#sb").textContent = job.score.before; $("#sa").textContent = job.score.after;
     const b = job.before || [], fixed = b.filter(f => f.fixed).length, src = b.filter(f => !f.fixed && SOURCE_ONLY.has(f.check)).length;
-    $("#scoreNote").textContent = `${fixed}/${b.length} issues proven fixed by CSS · ${src} need an HTML/content change`;
+    const ocr = job.ocr_proof && job.ocr_proof.cer_after != null ? `<br>Bare-device OCR error: <b>${pct(job.ocr_proof.cer_before)} → ${pct(job.ocr_proof.cer_after)}</b>` : "";
+    const rounds = (job.rounds || []).length ? `<br>${job.rounds.length} fix round(s), each proven in a fresh sandbox` : "";
+    $("#scoreNote").innerHTML = `${fixed}/${b.length} issues proven fixed by CSS · ${src} need an HTML/content change${ocr}${rounds}` +
+      (job.status === "done" ? `<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap"><a class="dl" href="/api/jobs/${job.id}/patch.css">⬇ patch.css</a><a class="dl" href="/api/jobs/${job.id}/report.json">⬇ report.json</a></div>` : "");
   }
   const v = $("#view");
   if (tab === "findings") v.innerHTML = findings();
@@ -171,8 +184,9 @@ function findings() {
     <tr><td>${esc(CHECK[f.check] || f.check)}</td><td><span class="sev ${f.severity}">${f.severity}</span></td>
     <td><div class="lao">${esc(f.text || f.detail?.found || "")}</div><div class="muted" style="font-size:12px">${esc(new URL(f.page).pathname)} · ${esc(short(f.detail))}</div></td>
     <td>${f.vision ? `${f.vision.visible === "yes" ? "👁 visible" : f.vision.visible === "no" ? "not visible" : "unsure"}<div class="muted" style="font-size:12px">${esc(f.vision.note)}</div>` : '<span class="muted">–</span>'}</td>
-    <td>${f.fixed === undefined ? '<span class="muted">…</span>' : f.fixed ? '<span class="fixed">✓ fixed</span>' : SOURCE_ONLY.has(f.check) ? '<span class="src">needs source</span>' : '<span class="open">✗ open</span>'}</td></tr>`).join("") + `</table>`;
+    <td>${f.fixed === undefined ? '<span class="muted">…</span>' : f.fixed ? '<span class="fixed">✓ fixed</span>' + (f.proof ? `<div class="muted" style="font-size:12px">${esc(f.proof)}</div>` : "") : SOURCE_ONLY.has(f.check) ? '<span class="src">needs source</span>' : '<span class="open">✗ open</span>'}</td></tr>`).join("") + `</table>`;
 }
+function pct(x) { return x == null ? "–" : (x * 100).toFixed(0) + "%"; }
 function short(d) {
   if (!d) return "";
   if (d.ratio) return `line-height ${d.ratio}×`;
@@ -220,7 +234,8 @@ function patch() {
   const tr = (fx.translations || []).map(t => `<tr><td>${esc(t.original)}</td><td class="lao">${esc(t.translated)}</td></tr>`).join("");
   return `<p>CSS patch written by <b>${p.source === "model" ? "the model (sanitized)" : "the deterministic fixer"}</b>, injected into a fresh sandbox and re-measured:</p>
     <pre>${esc(p.css || "(none)")}</pre>
-    ${fx.sanitizer && fx.sanitizer.length ? `<p class="pill bad">Sanitizer: ${esc(fx.sanitizer.join(", "))}</p>` : ""}
+    ${(job.rounds || []).map(r => `<span class="pill">round ${r.round} (${esc(r.source)}): ${r.open_after} left, ${r.css_fixable_open} CSS-fixable${r.bare_cer != null ? ", bare OCR " + pct(r.bare_cer) : ""}</span>`).join("")}
+    ${(job.model?.sanitizer || []).filter(x => x.problems.length).map(x => `<p class="pill bad">Sanitizer rejected round ${x.round}: ${esc(x.problems.join(", "))}</p>`).join("")}
     ${tr ? `<h3 style="font-size:14px">Suggested translations</h3><table><tr><th>Original</th><th>Translation</th></tr>${tr}</table>` : ""}
     ${(fx.source_changes || []).length ? `<h3 style="font-size:14px">Needs a source change</h3><ul>${fx.source_changes.map(s => `<li>${esc(s)}</li>`).join("")}</ul>` : ""}`;
 }
@@ -234,6 +249,7 @@ function contain() {
       <span class="pill ${e.destroyed ? "" : "bad"}">${e.destroyed ? "destroyed ✓" : "NOT destroyed"}</span>
       <span class="pill">exit ${esc(e.exit_code)}</span>${e.timed_out ? '<span class="pill bad">timeout kill</span>' : ""}${e.oom_killed ? '<span class="pill bad">OOM</span>' : ""}
       <div class="kv" style="margin-top:8px">${Object.entries(e.limits || {}).map(([k, v]) => `<div>${esc(k)}</div><div>${esc(v)}</div>`).join("")}</div>
+      ${(e.self_probe || []).length ? `<div style="margin-top:8px"><b>Self-attack from inside the sandbox:</b><br>${e.self_probe.map(p => `<span class="probe ${/\(!\)/.test(p.result) ? "deny" : "allow"}">${/\(!\)/.test(p.result) ? "✗" : "✓"} ${esc(p.probe)} → ${esc(p.result)}</span>`).join("<br>")}</div>` : ""}
       <div style="margin-top:8px"><b>Egress allowed:</b> ${(e.egress?.allowed || []).map(a => `<span class="allow">${esc(a)}</span>`).join(", ") || '<span class="muted">none</span>'}</div>
       <div><b>Egress blocked (${(e.egress?.denied || []).length}):</b><br>${(e.egress?.denied || []).map(d => `<span class="deny">✗ ${esc(d.host)}:${esc(d.port)} — ${esc(d.reason)}</span>`).join("<br>") || '<span class="muted">none</span>'}</div>
     </div>`).join("") +

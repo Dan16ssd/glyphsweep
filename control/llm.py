@@ -53,7 +53,29 @@ def chat(messages, model=None, max_tokens=1800, temperature=0.2):
     data = r.json()
     msg = data["choices"][0]["message"]
     usage = data.get("usage", {})
-    return (msg.get("content") or ""), usage
+    content = msg.get("content") or ""
+    if "{" not in content:  # some reasoning models put everything in reasoning_content
+        content = content + "\n" + (msg.get("reasoning_content") or "")
+    return content, usage
+
+
+def check_models():
+    """At startup: confirm the configured model IDs exist on Vultr Serverless Inference and accept images."""
+    global MODEL, VISION_MODEL
+    try:
+        data = httpx.get(f"{BASE}/models", timeout=20).json()["data"]
+    except Exception as e:  # noqa: BLE001
+        return f"model list unavailable: {e}"
+    caps = {m["id"]: [i["type"] for i in m.get("input_modalities", [])] for m in data
+            if any(o.get("type") == "text" for o in m.get("output_modalities", []))}
+    notes = []
+    if MODEL not in caps:
+        notes.append(f"{MODEL} not offered")
+        MODEL = next((m for m in ("qwen3.8-27b", "glm-5.3", "deepseek-v4.1-flash-1017") if m in caps), next(iter(caps), MODEL))
+    if VISION_MODEL not in caps or "image" not in caps.get(VISION_MODEL, []):
+        notes.append(f"{VISION_MODEL} cannot take images")
+        VISION_MODEL = next((m for m in caps if "image" in caps[m]), VISION_MODEL)
+    return f"text={MODEL} vision={VISION_MODEL}" + (f" ({'; '.join(notes)})" if notes else "")
 
 
 def parse_json(text: str):
@@ -85,7 +107,7 @@ def plan_pages(start_url, script, links, max_extra):
         f"{UNTRUSTED_RULE}\n\nDiscovered links:\n{untrusted(links)}\n\n"
         'Reply with JSON only: {"pages": ["<href exactly as given>"], "reasoning": "<one sentence>"}'
     )
-    text, usage = chat([{"role": "user", "content": prompt}], max_tokens=600)
+    text, usage = chat([{"role": "user", "content": prompt}], max_tokens=1500)
     out = parse_json(text)
     allowed = {l["href"] for l in links}
     pages = [p for p in out.get("pages", []) if p in allowed][:max_extra]
@@ -130,7 +152,7 @@ def verify(script, findings, jpeg_bytes):
     text, usage = chat([{"role": "user", "content": [
         {"type": "text", "text": prompt},
         {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img}"}},
-    ]}], model=VISION_MODEL, max_tokens=1200)
+    ]}], model=VISION_MODEL, max_tokens=2000)
     out = parse_json(text)
     by_n = {int(v.get("n", 0)): v for v in out.get("verdicts", []) if str(v.get("n", "")).isdigit() or isinstance(v.get("n"), int)}
     verdicts = []
@@ -141,7 +163,7 @@ def verify(script, findings, jpeg_bytes):
 
 
 # ---------------------------------------------------------------- fixer
-def fix(script, findings, fonts):
+def fix(script, findings, fonts, previous_css=None, residual=None):
     styleish = [
         {"check": f["check"], "selector": f["selector"], "detail": f.get("detail")}
         for f in findings if f["check"] in ("text_clipped", "tight_line_height", "letter_spacing", "syllable_break", "font_fallback")
@@ -162,7 +184,14 @@ def fix(script, findings, fonts):
         'JSON only: {"css": "...", "translations": [{"original": "...", "translated": "..."}], '
         '"source_changes": ["<changes that need HTML edits, e.g. lang attribute>"], "injection_attempts": []}'
     )
-    text, usage = chat([{"role": "user", "content": prompt}], max_tokens=2500)
+    if previous_css and residual:
+        prompt += (
+            "\n\nROUND 2: your previous patch was injected and the page was re-measured in a fresh sandbox. "
+            "These issues are STILL present (measured values after your patch):\n"
+            f"{untrusted(residual)}\n\nPrevious patch:\n{previous_css}\n\n"
+            "Return a COMPLETE replacement patch (not a diff) that also fixes these. Same JSON format."
+        )
+    text, usage = chat([{"role": "user", "content": prompt}], max_tokens=3500)
     out = parse_json(text)
     out["usage"] = usage
     return out
@@ -191,7 +220,8 @@ def sanitize_css(css: str):
 
     rest = _IMPORT_ANY.sub(take, css)
     low = rest.lower()
-    for bad in ("</", "<script", "javascript:", "expression(", "behavior:", "-moz-binding", "\\", "url(", "@import", "@font-face"):
+    for bad in ("</", "<", "javascript:", "expression(", "behavior:", "-moz-binding", "\\", "url(", "@import",
+                "@font-face", "image-set(", "src(", "element(", "//", "http:", "https:", "data:", "@namespace"):
         if bad in low:
             problems.append(f"forbidden token {bad!r}")
     if rest.count("{") != rest.count("}"):

@@ -40,16 +40,17 @@ plan ──► dispatch ──► verify ──► fix ──► prove ──►
 4. **Bare-device render.** The same page is rendered again with a fontconfig that has **no system font for the script**, simulating a phone without Lao fonts. **Tesseract OCR** reads both renders back and reports a character error rate against the DOM text. Tofu shows up as a number.
 5. **Verify.** A vision model on Vultr Serverless Inference gets the screenshot with numbered boxes and says which issues a reader can actually see.
 6. **Fix.** The model writes a CSS patch and translates the untranslated strings. The patch goes through a sanitizer that rejects everything except plain CSS and a Google Fonts `@import`. If the patch is rejected, or no model is configured, a deterministic fixer is used instead.
-7. **Prove.** A brand-new sandbox re-renders every page with the patch and re-runs all detectors and OCR. Each finding is then marked **fixed**, **open**, or **needs a source change** (lang attribute, copy).
+7. **Prove, then iterate.** A brand-new sandbox re-renders every page with the patch and re-runs all detectors and OCR. Anything still measurably broken goes back to the model with the measured values for a second round, which is proven in another fresh sandbox. Font fixes count only if **bare-device OCR** can actually read the text afterwards. The vision model also re-checks the patched screenshot. Each finding ends as **fixed**, **open**, or **needs a source change** (lang attribute, copy). `patch.css` and `report.json` can be downloaded.
 
 ## Containment (Blast Radius Zero)
 
 | Control | How |
 |---|---|
 | Process isolation | Every stage runs in a new container with the **gVisor `runsc`** runtime (auto-detected), a read-only rootfs and a tmpfs `/tmp`, as a non-root user with `cap_drop: ALL` and `no-new-privileges` |
-| Network isolation | The sandbox sits on an `internal: true` Docker network with **no route out**. Its only exit is a **per-job egress proxy** (`proxy/proxy.py`) that allows the target host and Google Fonts only, and refuses private, loopback, link-local and **cloud-metadata (169.254.169.254)** addresses, even through DNS |
+| Network isolation | The sandbox sits on an `internal: true` Docker network with **no route out**. Its only exit is a **per-job egress proxy** (`proxy/proxy.py`) addressed by IP. The proxy allows only the target site (and its subdomains), Google Fonts and a short list of public CDNs, so real pages render with their real CSS. Analytics, trackers and everything else are refused, as are private, loopback, link-local and **cloud-metadata (169.254.169.254)** addresses, even through DNS. Every plain-HTTP request is forced to `Connection: close`, so each one is checked and logged |
 | Secret hygiene | The inference key and the Docker socket stay in the control plane. The sandbox receives **zero** secrets and never talks to the model. The runner reports any secret-looking env var it can see as evidence |
 | Resource limits | 1.5 GB RAM (no swap), 1.5 vCPU, 512 PIDs, 150 s wall clock (then killed), proxy byte cap |
+| Self-attack probe | At the start of every run, the sandbox attacks itself: direct TCP to the metadata IP and to 1.1.1.1 (bypassing the proxy), opening `docker.sock`, writing to `/etc`, `/opt` and `/usr/bin`, and scanning env vars for secrets. The results are shown per sandbox in the **Containment** tab |
 | Lifecycle discipline | Both containers are force-removed after every stage, and the control plane **confirms they are gone**. Orphans are swept on startup |
 | Model containment | Page text reaches the model only inside `<untrusted>` tags. Findings come from deterministic code, so the model **cannot delete them**. The planner cannot add URLs. Model CSS is sanitized before it is injected |
 

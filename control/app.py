@@ -18,8 +18,8 @@ import uuid
 from pathlib import Path
 from urllib.parse import urlparse
 
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -39,6 +39,10 @@ JOBS: dict = {}
 LOCK = threading.Lock()
 
 SEV = {"high": 8, "medium": 4, "low": 1}
+SOURCE_ONLY = {"html_lang", "untranslated"}  # need an HTML/content change, not CSS
+MAX_ROUNDS = int(os.environ.get("GS_FIX_ROUNDS", "2"))
+RATE = {}  # ip -> [timestamps]
+RATE_LIMIT = int(os.environ.get("GS_JOBS_PER_HOUR", "8"))
 INJECTION_RE = re.compile(r"(ignore (all|any|previous|prior)|system prompt|you are an ai|api[ _-]?key|report (no|zero) issues|disregard)", re.I)
 
 
@@ -69,9 +73,11 @@ def validate_url(url):
 
 
 def score(findings):
-    """0-100 readiness: 100 = no issues; decays smoothly with weighted severity."""
+    """0-100 readiness: 100 = no issues; decays smoothly with weighted severity.
+    Findings the vision model judged NOT visible to a reader don't count."""
     import math
-    return round(100 * math.exp(-sum(SEV.get(f["severity"], 1) for f in findings) / 80))
+    counted = [f for f in findings if (f.get("vision") or {}).get("visible") != "no"]
+    return round(100 * math.exp(-sum(SEV.get(f["severity"], 1) for f in counted) / 80))
 
 
 def save_shot(job_id, name, shot):
@@ -99,13 +105,26 @@ def collect(job_id, stage, result):
 
 
 def injection_findings(pages):
+    """Scan ALL page text (visible + hidden + alt/title/aria/meta) for instructions aimed at AI agents."""
     out = []
     for pg in pages:
-        for f in pg.get("findings", []):
-            s = f.get("text", "") + " " + json.dumps(f.get("detail", {}), ensure_ascii=False)
-            if INJECTION_RE.search(s):
-                out.append({"page": pg["url"], "text": f.get("text", "")[:160], "selector": f["selector"]})
-    return out
+        text = pg.pop("pageText", "") or ""
+        for m in INJECTION_RE.finditer(text):
+            a, b = max(0, m.start() - 60), min(len(text), m.end() + 100)
+            snippet = text[a:b].strip()
+            if not any(snippet[:40] in x["text"] for x in out):
+                out.append({"page": pg["url"], "text": snippet[:200]})
+    return out[:10]
+
+
+def mean_cer(bare):
+    o = (bare or {}).get("ocr") or []
+    return round(sum(x["cer"] for x in o) / len(o), 3) if o else None
+
+
+def residual_for_model(after):
+    return [{"check": f["check"], "selector": f["selector"], "detail": f.get("detail")}
+            for f in after if f["check"] not in SOURCE_ONLY][:25]
 
 
 def run_job(job):
@@ -115,7 +134,8 @@ def run_job(job):
     with SEM:
         try:
             job["status"] = "running"
-            event(job, "plan", "done", f"Target {host}; script {script}; egress allowlist = [{host}, Google Fonts]; "
+            allow = f"[{host}, Google Fonts]" if job["demo"] else f"[{host} + its subdomains, Google Fonts, common CDNs]"
+            event(job, "plan", "done", f"Target {host}; script {script}; egress allowlist = {allow}; "
                   f"model = {llm.MODEL if llm.enabled() else 'none (deterministic mode)'}")
 
             # 1. discovery sandbox
@@ -176,45 +196,87 @@ def run_job(job):
                 except Exception as e:  # noqa: BLE001
                     event(job, "verify", "warn", f"Vision verification skipped: {e}")
 
-            # 4. fix
-            css, source = None, "deterministic"
-            if llm.enabled() and before:
-                try:
-                    fx = llm.fix(script, before, pages[0].get("fonts"))
-                    clean, problems = llm.sanitize_css(fx.get("css", ""))
-                    fx["sanitizer"] = problems
-                    job["model"]["fix"] = {k: fx.get(k) for k in ("translations", "source_changes", "injection_attempts", "sanitizer", "usage")}
-                    if clean:
-                        css, source = clean, "model"
-                    event(job, "fix", "done" if clean else "warn",
-                          f"Model proposed a {len(fx.get('css', ''))}-char CSS patch; sanitizer: {', '.join(problems) or 'clean'}"
-                          + ("" if clean else " → rejected, using deterministic patch"))
-                except Exception as e:  # noqa: BLE001
-                    event(job, "fix", "warn", f"Model fix failed ({e}); using deterministic patch")
-            if not css and before:
-                css = llm.fallback_css(script, before)
+            # 4-5. fix → prove loop: the model patches, a brand-new sandbox re-measures, and anything
+            # still measurably broken goes back to the model (at most MAX_ROUNDS rounds).
+            css, source, after, residual = None, "deterministic", None, None
+            fixable = [f for f in before if f["check"] not in SOURCE_ONLY]
+            job["rounds"] = []
+            for rnd in range(1, (MAX_ROUNDS if llm.enabled() else 1) + 1):
+                if not fixable or (rnd > 1 and not residual):
+                    break
+                new_css = None
+                if llm.enabled():
+                    try:
+                        fx = llm.fix(script, before, pages[0].get("fonts"), previous_css=css if rnd > 1 else None,
+                                     residual=residual if rnd > 1 else None)
+                        clean, problems = llm.sanitize_css(fx.get("css", ""))
+                        if rnd == 1 or fx.get("translations"):
+                            job["model"]["fix"] = {k: fx.get(k) for k in ("translations", "source_changes", "injection_attempts", "usage")}
+                        job["model"].setdefault("sanitizer", []).append({"round": rnd, "problems": problems})
+                        if clean:
+                            new_css, source = clean, "model"
+                        event(job, "fix", "done" if clean else "warn",
+                              f"Round {rnd}: model wrote a {len(fx.get('css', ''))}-char CSS patch"
+                              + (f" from {len(residual)} residual measurements" if rnd > 1 else "")
+                              + f"; sanitizer: {', '.join(problems) or 'clean'}" + ("" if clean else " → rejected"))
+                    except Exception as e:  # noqa: BLE001
+                        event(job, "fix", "warn", f"Round {rnd}: model fix failed ({e})")
+                if not new_css:
+                    if rnd > 1:
+                        break
+                    new_css, source = llm.fallback_css(script, before), "deterministic"
+                    event(job, "fix", "done", "Using the deterministic fixer's patch")
+                css = new_css
+                n = len(job["containment"]) + 1
+                event(job, "prove", "running", f"Sandbox #{n}: re-render every page with the round-{rnd} patch, re-run detectors + OCR")
+                res3, ev3 = sandbox.dispatch(f"prove-r{rnd}", [pg["url"] for pg in pages], script, host, css_patch=css, internal_ok=internal_ok)
+                job["containment"].append(ev3)
+                if not res3:
+                    event(job, "prove", "warn", f"Proof sandbox #{n} returned no result")
+                    break
+                after_pages, bare_after = collect(jid, f"after_r{rnd}", res3)
+                after = [f for pg in after_pages for f in pg.get("findings", [])]
+                job["after"] = after
+                job["after_pages"] = [{k: pg.get(k) for k in ("url", "image", "ocr")} for pg in after_pages]
+                job["bare_after"] = bare_after
+                job["net"].append(res3.get("net"))
+                residual = residual_for_model(after)
+                job["rounds"].append({"round": rnd, "source": source, "css": css, "open_after": len(after),
+                                      "css_fixable_open": len(residual), "bare_cer": mean_cer(bare_after)})
+                event(job, "prove", "done", f"Sandbox #{n} destroyed={ev3['destroyed']} · round {rnd}: "
+                      f"{len(after)} findings left ({len(residual)} CSS-fixable)")
             job["patch"] = {"css": css, "source": source}
 
-            # 5. prove: re-measure with the patch in a brand-new sandbox
-            if css:
-                event(job, "prove", "running", "Sandbox #3: re-render every page with the patch, re-run detectors + OCR")
-                res3, ev3 = sandbox.dispatch("prove", [pg["url"] for pg in pages], script, host, css_patch=css, internal_ok=internal_ok)
-                job["containment"].append(ev3)
-                if res3:
-                    after_pages, bare_after = collect(jid, "after", res3)
-                    after = [f for pg in after_pages for f in pg.get("findings", [])]
-                    job["after"] = after
-                    job["after_pages"] = [{k: pg.get(k) for k in ("url", "image", "ocr")} for pg in after_pages]
-                    job["bare_after"] = bare_after
-                    job["net"].append(res3.get("net"))
-                    akeys = {f["key"] for f in after}
+            if after is not None:
+                akeys = {f["key"] for f in after}
+                for f in before:
+                    f["fixed"] = f["key"] not in akeys
+                # Font fixes are judged by pixels, not by our own font check: on the bare device
+                # (no system font for the script) OCR must actually read the text after the patch.
+                cb, ca = mean_cer(bare), mean_cer(job.get("bare_after"))
+                job["ocr_proof"] = {"cer_before": cb, "cer_after": ca}
+                if ca is not None:
                     for f in before:
-                        f["fixed"] = f["key"] not in akeys
-                    event(job, "prove", "done", f"Sandbox #3 destroyed={ev3['destroyed']} · {sum(f['fixed'] for f in before)}/{len(before)} findings gone after patch")
-                else:
-                    event(job, "prove", "warn", "Proof sandbox returned no result")
+                        if f["check"] == "font_fallback":
+                            f["fixed"] = f["fixed"] and ca < 0.25
+                            f["proof"] = f"bare-device OCR error {cb:.0%} → {ca:.0%}" if cb is not None else f"bare-device OCR error {ca:.0%}"
 
-            job["score"] = {"before": score(before), "after": score(job.get("after", before))}
+                # Vision check on the AFTER render: does the patched page look right to a reader?
+                if llm.enabled() and job.get("after_pages") and job["after_pages"][0].get("image"):
+                    try:
+                        p0 = pages[0]["url"]
+                        img = (DATA / jid / job["after_pages"][0]["image"]["src"].rsplit("/", 1)[1]).read_bytes()
+                        fixed_boxes = [dict(f, check=f"{f['check']} (should now be FIXED)") for f in before
+                                       if f["page"] == p0 and f.get("fixed") and f["bbox"]["w"] > 0]
+                        va = llm.verify(script, fixed_boxes[:10], img)
+                        job["model"]["verify_after"] = va
+                        still = sum(1 for x in va["verdicts"] if x["visible"] == "yes")
+                        event(job, "verify", "done", f"Vision re-check of the patched page: {still}/{len(va['verdicts'])} "
+                              "previously boxed problems still look visible")
+                    except Exception as e:  # noqa: BLE001
+                        event(job, "verify", "warn", f"Vision re-check skipped: {e}")
+
+            job["score"] = {"before": score(before), "after": score(after if after is not None else before)}
             job["status"] = "done"
             event(job, "report", "done", f"Script readiness {job['score']['before']} → {job['score']['after']}")
         except Exception as e:  # noqa: BLE001
@@ -239,10 +301,29 @@ def startup():
         print(f"[glyphsweep] docker not ready: {e}", flush=True)
 
 
+MODEL_STATUS = {"status": "not checked"}
+
+
+@app.on_event("startup")
+def startup_models():
+    MODEL_STATUS["status"] = llm.check_models()
+    print(f"[glyphsweep] models: {MODEL_STATUS['status']}", flush=True)
+
+
 @app.post("/api/jobs")
-def create_job(body: JobIn):
+def create_job(body: JobIn, request: Request):
     if body.script not in llm.LANG_NAME:
         raise HTTPException(400, "script must be one of " + ", ".join(llm.LANG_NAME))
+    ip = request.client.host if request.client else "?"  # no reverse proxy in front; XFF would be spoofable
+    now = time.time()
+    with LOCK:
+        RATE[ip] = [t for t in RATE.get(ip, []) if now - t < 3600]
+        if len(RATE[ip]) >= RATE_LIMIT:
+            raise HTTPException(429, f"Limit is {RATE_LIMIT} sweeps per hour per visitor. Try again later.")
+        RATE[ip].append(now)
+        for old in sorted(JOBS, key=lambda k: JOBS[k]["created"])[:-100]:  # keep memory bounded
+            if JOBS[old]["status"] in ("done", "error"):
+                JOBS.pop(old, None)
     url = DEMO_URL if body.demo else body.url.strip()
     host = urlparse(url).hostname if body.demo else validate_url(url)
     jid = uuid.uuid4().hex[:12]
@@ -262,7 +343,29 @@ def get_job(jid: str):
         if p.exists():
             return JSONResponse(json.loads(p.read_text(encoding="utf-8")))
         raise HTTPException(404)
-    return JSONResponse(json.loads(json.dumps(job, ensure_ascii=False, default=str)))
+    for _ in range(5):  # the worker thread may be mutating the job; retry a consistent snapshot
+        try:
+            return JSONResponse(json.loads(json.dumps(job, ensure_ascii=False, default=str)))
+        except RuntimeError:
+            time.sleep(0.05)
+    raise HTTPException(503, "busy, retry")
+
+
+@app.get("/api/jobs/{jid}/patch.css")
+def get_patch(jid: str):
+    job = get_job(jid)
+    data = json.loads(job.body)
+    css = (data.get("patch") or {}).get("css") or "/* no patch */"
+    head = f"/* GlyphSweep patch for {data.get('url')} ({data.get('script')}), proven in a fresh sandbox. */\n"
+    return Response(head + css, media_type="text/css",
+                    headers={"Content-Disposition": f'attachment; filename="glyphsweep-{jid}.css"'})
+
+
+@app.get("/api/jobs/{jid}/report.json")
+def get_report(jid: str):
+    job = get_job(jid)
+    return Response(job.body, media_type="application/json",
+                    headers={"Content-Disposition": f'attachment; filename="glyphsweep-{jid}.json"'})
 
 
 @app.get("/api/jobs/{jid}/img/{name}")
@@ -277,7 +380,8 @@ def get_img(jid: str, name: str):
 
 @app.get("/api/health")
 def health():
-    info = {"model": llm.MODEL, "model_configured": llm.enabled()}
+    info = {"model": llm.MODEL, "vision_model": llm.VISION_MODEL, "model_configured": llm.enabled(),
+            "model_check": MODEL_STATUS["status"]}
     try:
         info["runtime"] = "local-dev (not isolated)" if sandbox.LOCAL else sandbox.runtime()
     except Exception as e:  # noqa: BLE001

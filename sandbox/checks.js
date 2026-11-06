@@ -146,7 +146,7 @@ async ({ script, sentinels }) => {
     }
 
     // 4. Line height too tight for stacked diacritics
-    if (ratio < 1.45) {
+    if (ratio < 1.4) {  // Bootstrap's 1.428 passes; Latin-tuned 1.1-1.3 does not
       add("tight_line_height", ratio < 1.25 ? "high" : "medium", el, {
         lineHeightPx: Math.round(lh * 10) / 10, fontSizePx: fs, ratio: Math.round(ratio * 100) / 100,
         why: "Lao/Thai stack vowels and tone marks above and below the baseline; < ~1.5 overlaps or clips them.",
@@ -210,7 +210,11 @@ async ({ script, sentinels }) => {
       return { text: ownText(el).trim().replace(/\s+/g, " "), bbox: { x: Math.round(r.x + scrollX), y: Math.round(r.y + scrollY), w: Math.round(r.width), h: Math.round(r.height) } };
     });
 
+  const extra = [...document.querySelectorAll("[alt],[title],[aria-label],meta[content]")]
+    .map((e) => e.getAttribute("alt") || e.getAttribute("title") || e.getAttribute("aria-label") || e.getAttribute("content") || "")
+    .join(" | ");
   return {
+    pageText: ((document.body ? document.body.textContent : "") + " | " + extra).replace(/\s+/g, " ").slice(0, 20000),
     title: document.title,
     htmlLang,
     scriptShare: Math.round(share * 100) / 100,

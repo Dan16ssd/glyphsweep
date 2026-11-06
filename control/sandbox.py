@@ -27,6 +27,23 @@ TIMEOUT_S = int(os.environ.get("GS_SANDBOX_TIMEOUT", "150"))
 MEM = os.environ.get("GS_SANDBOX_MEM", "1536m")
 CPUS = float(os.environ.get("GS_SANDBOX_CPUS", "1.5"))
 FONT_HOSTS = ["fonts.googleapis.com", "fonts.gstatic.com"]
+# Common public CDNs real sites load CSS/JS/fonts from. Logged per request like everything else.
+CDN_HOSTS = [".cloudflare.com", ".jsdelivr.net", "unpkg.com", "ajax.googleapis.com", ".cloudfront.net",
+             ".akamaized.net", ".shopify.com", ".shopifycdn.com", ".wp.com", ".bootstrapcdn.com", ".fontawesome.com",
+             ".gstatic.com", ".googleapis.com", ".fastly.net", ".wixstatic.com", ".squarespace-cdn.com"]
+TWO_LEVEL_TLDS = {"co", "com", "net", "org", "gov", "edu", "ac", "or", "go", "in"}
+
+
+def site_allowlist(host):
+    """Target's registrable domain + all its subdomains (www., cdn., static.) + public CDNs."""
+    parts = host.split(".")
+    if host.replace(".", "").isdigit() or len(parts) < 2:
+        base = host
+    elif len(parts) >= 3 and parts[-2] in TWO_LEVEL_TLDS and len(parts[-1]) == 2:
+        base = ".".join(parts[-3:])
+    else:
+        base = ".".join(parts[-2:])
+    return [host, "." + base] + FONT_HOSTS + CDN_HOSTS
 RESULT_MARK = "GLYPHSWEEP_RESULT "
 
 _client = None
@@ -77,7 +94,7 @@ def dispatch(stage, pages, script, target_host, css_patch=None, bare_profile=Tru
     rid = uuid.uuid4().hex[:10]
     rt = runtime()
     ev = {"stage": stage, "run_id": rid, "runtime": rt, "pages": pages, "started": time.time()}
-    allow = [target_host] + FONT_HOSTS
+    allow = [target_host] + FONT_HOSTS if internal_ok else site_allowlist(target_host)
     proxy = sbx = None
     try:
         proxy = c.containers.run(
@@ -88,10 +105,13 @@ def dispatch(stage, pages, script, target_host, css_patch=None, bare_profile=Tru
             labels={"glyphsweep": "proxy", "run": rid},
         )
         c.networks.get(NET_INTERNAL).connect(proxy)
+        proxy.reload()
+        # Address the proxy by IP: no dependence on Docker's embedded DNS inside the sandbox.
+        proxy_ip = proxy.attrs["NetworkSettings"]["Networks"][NET_INTERNAL]["IPAddress"]
 
         spec = {
             "pages": pages, "script": script, "css_patch": css_patch, "bare_profile": bare_profile,
-            "proxy": f"http://gs-proxy-{rid}:8888", "max_pages": 4,
+            "proxy": f"http://{proxy_ip}:8888", "max_pages": 4,
             "sentinels": sentinels or SENTINELS[script],
         }
         host_config = dict(
@@ -108,7 +128,8 @@ def dispatch(stage, pages, script, target_host, css_patch=None, bare_profile=Tru
         sbx.start()
         ev["limits"] = {"memory": MEM, "cpus": CPUS, "pids": 512, "read_only_rootfs": True, "tmpfs": "/tmp 768m",
                         "cap_drop": "ALL", "no_new_privileges": True, "network": f"{NET_INTERNAL} (internal, no route out)",
-                        "egress": f"only via proxy, allow={allow}", "timeout_s": TIMEOUT_S, "secrets_passed": 0}
+                        "egress": f"only via proxy {proxy_ip}:8888; allowlist = {', '.join(allow[:4])} + {max(0, len(allow) - 4)} CDN/font hosts",
+                        "timeout_s": TIMEOUT_S, "secrets_passed": 0}
         timed_out = False
         try:
             st = sbx.wait(timeout=TIMEOUT_S)
@@ -127,6 +148,8 @@ def dispatch(stage, pages, script, target_host, css_patch=None, bare_profile=Tru
         for line in out.splitlines():
             if line.startswith(RESULT_MARK):
                 result = json.loads(line[len(RESULT_MARK):])
+        if result:
+            ev["self_probe"] = result.get("probe")
         proxy_log = []
         for line in proxy.logs().decode("utf-8", "replace").splitlines():
             try:
@@ -181,7 +204,7 @@ def _dispatch_local(stage, pages, script, target_host, css_patch, internal_ok):
     with socket.socket() as s:
         s.bind(("127.0.0.1", 0))
         port = s.getsockname()[1]
-    allow = [target_host] + FONT_HOSTS
+    allow = [target_host] + FONT_HOSTS if internal_ok else site_allowlist(target_host)
     env = dict(os.environ, ALLOW_HOSTS=",".join(allow), INTERNAL_OK=internal_ok or "", PORT=str(port), BIND="127.0.0.1",
                PYTHONIOENCODING="utf-8")
     proxy = subprocess.Popen([sys.executable, "-u", os.path.join(REPO, "proxy", "proxy.py")], env=env,
@@ -216,6 +239,8 @@ def _dispatch_local(stage, pages, script, target_host, css_patch, internal_ok):
             pl.append(json.loads(line))
         except ValueError:
             pass
+    if result:
+        ev["self_probe"] = result.get("probe")
     ev["egress"] = {"allowed": sorted({f"{p['host']}:{p['port']}" for p in pl if p.get("action") == "allow"}),
                     "denied": [{"host": p.get("host"), "port": p.get("port"), "reason": p.get("reason")} for p in pl if p.get("action") == "deny"][:50]}
     ev["destroyed"] = True

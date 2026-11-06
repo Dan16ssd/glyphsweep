@@ -152,6 +152,36 @@ def run_page(browser, url, spec, net, with_shot=True):
     return res
 
 
+def self_probe():
+    """Attack our own sandbox from the inside and record what happens (shown in the UI)."""
+    import socket
+    res = []
+
+    def tcp(host, port):
+        try:
+            s = socket.create_connection((host, port), timeout=3)
+            s.close()
+            return "OPEN (!)"
+        except Exception as e:  # noqa: BLE001
+            return f"blocked: {type(e).__name__}: {str(e)[:60]}"
+
+    res.append({"probe": "direct TCP to Vultr metadata 169.254.169.254:80 (bypassing proxy)", "result": tcp("169.254.169.254", 80)})
+    res.append({"probe": "direct TCP to internet 1.1.1.1:443 (bypassing proxy)", "result": tcp("1.1.1.1", 443)})
+    for path in ("/var/run/docker.sock", "/run/docker.sock"):
+        res.append({"probe": f"open {path}", "result": "EXISTS (!)" if os.path.exists(path) else "blocked: not present"})
+    for path in ("/etc/glyphsweep-probe", "/opt/glyphsweep/probe", "/usr/bin/probe"):
+        try:
+            with open(path, "w") as f:
+                f.write("x")
+            res.append({"probe": f"write {path}", "result": "WRITABLE (!)"})
+        except Exception as e:  # noqa: BLE001
+            res.append({"probe": f"write {path}", "result": f"blocked: {type(e).__name__}"})
+    secrets = sorted(k for k in os.environ if any(s in k.upper() for s in ("KEY", "TOKEN", "SECRET", "PASSWORD", "VULTR")))
+    res.append({"probe": "secret-looking env vars", "result": f"{len(secrets)} found" + (f" (!) {secrets}" if secrets else "")})
+    res.append({"probe": "running as", "result": f"uid {os.getuid() if hasattr(os, 'getuid') else '?'}"})
+    return res
+
+
 def main():
     spec = json.loads(base64.b64decode(os.environ["JOB_SPEC"]).decode())
     net = {"requests": {}, "failed": [], "popups": []}
@@ -160,6 +190,7 @@ def main():
         "secrets_in_env": sorted(k for k in os.environ if any(s in k.upper() for s in ("KEY", "TOKEN", "SECRET", "PASSWORD"))),
         "hostname": os.environ.get("HOSTNAME"),
     }}
+    out["probe"] = self_probe()
     with sync_playwright() as p:
         browser = launch(p, spec)
         for url in spec["pages"][: spec.get("max_pages", 4)]:
