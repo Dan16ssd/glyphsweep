@@ -39,24 +39,48 @@ def enabled() -> bool:
     return bool(KEY)
 
 
+THINKING = os.environ.get("GS_THINKING", "0") == "1"
+
+
 def chat(messages, model=None, max_tokens=1800, temperature=0.2):
     if not KEY:
         raise LLMError("VULTR_INFERENCE_API_KEY not set")
-    r = httpx.post(
-        f"{BASE}/chat/completions",
-        headers={"Authorization": f"Bearer {KEY}"},
-        json={"model": model or MODEL, "messages": messages, "max_tokens": max_tokens, "temperature": temperature},
-        timeout=120,
-    )
+    body = {"model": model or MODEL, "messages": messages, "max_tokens": max_tokens, "temperature": temperature}
+    if not THINKING:
+        # Structured-output tasks: hidden reasoning burns the token budget and can leave the reply empty.
+        body["chat_template_kwargs"] = {"enable_thinking": False}
+    r = httpx.post(f"{BASE}/chat/completions", headers={"Authorization": f"Bearer {KEY}"}, json=body, timeout=180)
+    if r.status_code >= 400 and "chat_template_kwargs" in body:
+        body.pop("chat_template_kwargs")  # provider/model doesn't accept the switch: retry plain
+        r = httpx.post(f"{BASE}/chat/completions", headers={"Authorization": f"Bearer {KEY}"}, json=body, timeout=180)
     if r.status_code >= 400:
         raise LLMError(f"inference HTTP {r.status_code}: {r.text[:300]}")
     data = r.json()
-    msg = data["choices"][0]["message"]
+    choice = data["choices"][0]
+    msg = choice["message"]
     usage = data.get("usage", {})
     content = msg.get("content") or ""
     if "{" not in content:  # some reasoning models put everything in reasoning_content
         content = content + "\n" + (msg.get("reasoning_content") or "")
+    if choice.get("finish_reason") == "length":
+        usage = {**usage, "truncated": True}
     return content, usage
+
+
+def chat_json(messages, model=None, max_tokens=1800):
+    """chat() + parse_json(), with one repair round: the parse error goes back to the model."""
+    text, usage = chat(messages, model=model, max_tokens=max_tokens)
+    try:
+        return parse_json(text), usage
+    except (ValueError, json.JSONDecodeError) as e:
+        repair = messages + [
+            {"role": "assistant", "content": text[-6000:] or "(empty)"},
+            {"role": "user", "content": f"That was not valid JSON ({e}). Reply again with ONLY the complete, valid JSON object. "
+                                        "Escape double quotes inside strings. No prose, no code fences."},
+        ]
+        text2, usage2 = chat(repair, model=model, max_tokens=max_tokens)
+        out = parse_json(text2)
+        return out, {**usage2, "repaired": True}
 
 
 def check_models():
@@ -107,8 +131,7 @@ def plan_pages(start_url, script, links, max_extra):
         f"{UNTRUSTED_RULE}\n\nDiscovered links:\n{untrusted(links)}\n\n"
         'Reply with JSON only: {"pages": ["<href exactly as given>"], "reasoning": "<one sentence>"}'
     )
-    text, usage = chat([{"role": "user", "content": prompt}], max_tokens=1500)
-    out = parse_json(text)
+    out, usage = chat_json([{"role": "user", "content": prompt}], max_tokens=2000)
     allowed = {l["href"] for l in links}
     pages = [p for p in out.get("pages", []) if p in allowed][:max_extra]
     return {"pages": pages, "reasoning": str(out.get("reasoning", ""))[:300], "usage": usage,
@@ -149,11 +172,10 @@ def verify(script, findings, jpeg_bytes):
         f"{UNTRUSTED_RULE}\n\nFindings:\n{untrusted(listing)}\n\n"
         'JSON only: {"verdicts": [{"n": 1, "visible": "yes|no|unsure", "note": "<=15 words"}], "injection_attempts": []}'
     )
-    text, usage = chat([{"role": "user", "content": [
+    out, usage = chat_json([{"role": "user", "content": [
         {"type": "text", "text": prompt},
         {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img}"}},
-    ]}], model=VISION_MODEL, max_tokens=2000)
-    out = parse_json(text)
+    ]}], model=VISION_MODEL, max_tokens=3000)
     by_n = {int(v.get("n", 0)): v for v in out.get("verdicts", []) if str(v.get("n", "")).isdigit() or isinstance(v.get("n"), int)}
     verdicts = []
     for i, f in enumerate(boxed, 1):
@@ -191,8 +213,7 @@ def fix(script, findings, fonts, previous_css=None, residual=None):
             f"{untrusted(residual)}\n\nPrevious patch:\n{previous_css}\n\n"
             "Return a COMPLETE replacement patch (not a diff) that also fixes these. Same JSON format."
         )
-    text, usage = chat([{"role": "user", "content": prompt}], max_tokens=3500)
-    out = parse_json(text)
+    out, usage = chat_json([{"role": "user", "content": prompt}], max_tokens=6000)
     out["usage"] = usage
     return out
 
