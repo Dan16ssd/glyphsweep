@@ -51,6 +51,8 @@
   .hero h1 .l { font-family:"Noto Sans Lao", sans-serif; font-weight:800; line-height:1.5; letter-spacing:0;
                 background:linear-gradient(100deg, var(--gold2), var(--gold) 45%, var(--saffron)); -webkit-background-clip:text; background-clip:text; color:transparent;
                 filter:drop-shadow(0 0 22px rgba(242,181,68,.35)); }
+  #rot { display:inline-block; transition:opacity .35s, transform .35s; }
+  #rot.out { opacity:0; transform:translateY(8px); }
   .lead { font-size:18px; color:#cfcbe8; max-width:560px; margin:0; }
   .lead b { color:var(--ink); }
 
@@ -164,8 +166,8 @@
 </div></nav>
 
 <header class="hero"><div class="wrap">
-  <span class="badge"><i></i>Rendering QA agent for Lao · Thai · Khmer · Burmese</span>
-  <h1>Your site says it speaks <span class="l" lang="lo">ພາສາລາວ</span>. Does it?</h1>
+  <span class="badge"><i></i>Rendering QA agent for 150M+ readers of Lao · Thai · Khmer · Burmese</span>
+  <h1>Your site says it speaks <span class="l" id="rot" lang="lo">ພາສາລາວ</span>. Does it?</h1>
   <p class="lead">GlyphSweep finds clipped tone marks, missing fonts and broken syllables, writes a CSS fix, and <b>proves it by re-rendering</b>. Every page it touches opens in a throwaway <b>gVisor sandbox</b> on Vultr.</p>
   <form id="f">
     <input type="url" id="url" placeholder="https://your-site.la/" required aria-label="Website URL">
@@ -239,6 +241,17 @@
 
 <script>
 const $ = (s) => document.querySelector(s);
+(() => {  // the headline cycles through the four scripts GlyphSweep audits
+  const W = [["ພາສາລາວ", "lo", "lao"], ["ภาษาไทย", "th", "thai"], ["ភាសាខ្មែរ", "km", "khmer"], ["မြန်မာဘာသာ", "my", "myanmar"]];
+  let i = 0; const el = document.getElementById("rot");
+  if (!el || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  setInterval(() => {
+    el.classList.add("out");
+    setTimeout(() => { i = (i + 1) % W.length; el.textContent = W[i][0]; el.lang = W[i][1];
+      el.style.fontFamily = `"Noto Sans ${{lao:"Lao",thai:"Thai",khmer:"Khmer",myanmar:"Myanmar"}[W[i][2]]}", sans-serif`;
+      el.classList.remove("out"); }, 350);
+  }, 2600);
+})();
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const CHECK = {
   html_lang: "Wrong / missing lang", untranslated: "Untranslated UI", text_clipped: "Clipped glyphs",

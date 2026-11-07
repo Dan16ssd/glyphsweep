@@ -147,6 +147,14 @@ def run_job(job):
             pages, bare = collect(jid, "before", res)
             if pages and pages[0].get("error"):
                 raise RuntimeError(f"Start page failed to load in the sandbox: {pages[0]['error'][:300]}")
+            # Never report a perfect score for a page we didn't really see (bot wall, error page, wrong language).
+            p0, lname = pages[0] if pages else {}, llm.LANG_NAME[script]
+            if (p0.get("status") or 0) >= 400:
+                raise RuntimeError(f"Inconclusive: the site answered HTTP {p0['status']} (“{(p0.get('title') or '')[:60]}”), "
+                                   "probably bot protection, so there was nothing real to audit. No score is given.")
+            if not p0.get("targetElements"):
+                raise RuntimeError(f"Inconclusive: no {lname} text was found on the rendered page "
+                                   f"(title “{(p0.get('title') or '')[:60]}”). Try the site's {lname}-language URL.")
             job["net"].append(res.get("net"))
             event(job, "dispatch", "done", f"Sandbox #1 destroyed={ev['destroyed']} · {len(pages[0].get('findings', []))} findings · "
                   f"{len(ev['egress']['denied'])} egress attempts blocked", run=ev["run_id"])
