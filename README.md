@@ -19,6 +19,17 @@ Over 100 million people read these scripts every day. On most sites, their text 
 
 Localization QA is a paid industry, but its tools are built for Latin text. GlyphSweep is built for these scripts specifically.
 
+## We measured it: 82 live Lao websites
+
+We ran the GlyphSweep detectors (read-only, homepage only, desktop + phone width) on 92 Lao government, university, bank, telecom and business sites; 82 rendered with real Lao content.
+
+- **48%** have at least one visible Lao rendering problem.
+- **44%** never deliver a Lao font — Lao text renders in whatever the visitor's device happens to have.
+- **62%** don't declare `lang="lo"`, so screen readers and line-breaking use the wrong language.
+- **87%** use a line height too tight for Lao stacked marks; **22%** apply letter-spacing to Lao.
+
+Full table, method and per-category scores: [`research/RESULTS.md`](research/RESULTS.md). Scripts: `research/scan.py`, `research/summarize.py`.
+
 ## Who pays for this
 
 | Buyer | Pain | What they get |

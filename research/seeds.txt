@@ -1,0 +1,47 @@
+# Seed domains for discovering Lao-language websites. The crawler follows links outward from these.
+# government
+kpl.gov.la
+laogov.gov.la
+mofa.gov.la
+mof.gov.la
+moic.gov.la
+mtc.gov.la
+moes.edu.la
+moh.gov.la
+mpi.gov.la
+mpwt.gov.la
+maf.gov.la
+na.gov.la
+bol.gov.la
+lsb.gov.la
+laotradeportal.gov.la
+investlaos.gov.la
+laoofficialgazette.gov.la
+vientianecapital.gov.la
+# news / media
+vientianetimes.org.la
+pasaxon.org.la
+lnr.org.la
+lntv.gov.la
+laotiantimes.com
+rfa.org
+# banks
+bcel.com.la
+ldblao.la
+apb.com.la
+jdbbank.com.la
+bfl.la
+lvb.com.la
+acledabank.com.la
+# telecom
+laotel.com
+unitel.com.la
+etllao.com
+# education
+nuol.edu.la
+su.edu.la
+uhs.edu.la
+# business
+laoairlines.com
+edl.com.la
+beerlao.la
