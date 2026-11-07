@@ -27,8 +27,14 @@ REPO = os.path.dirname(HERE)
 CHECKS_JS = open(os.path.join(REPO, "sandbox", "checks.js"), encoding="utf-8").read()
 SEV = {"high": 8, "medium": 4, "low": 1}
 VIEWPORTS = {"desktop": {"width": 1280, "height": 900}, "phone": {"width": 390, "height": 844}}
-LAO = re.compile(r"[຀-໿]")
-SENTINELS = os.environ.get("GS_SENTINELS", "Lao UI,Leelawadee UI").split(",")
+SCRIPT_RE = {"lao": re.compile(r"[຀-໿]"), "thai": re.compile(r"[฀-๿]"),
+             "khmer": re.compile(r"[ក-៿]"), "myanmar": re.compile(r"[က-႟]")}
+# Two fonts that both draw the script but have different metrics. Inside the sandbox image these are the
+# Noto Sans / Noto Serif pair (same as the live agent); override with GS_SENTINELS="A,B" elsewhere.
+NOTO = {"lao": "Lao", "thai": "Thai", "khmer": "Khmer", "myanmar": "Myanmar"}
+def sentinels(script):
+    env = os.environ.get("GS_SENTINELS")
+    return env.split(",") if env else [f"Noto Sans {NOTO[script]}", f"Noto Serif {NOTO[script]}"]
 
 
 def score(findings):
@@ -105,7 +111,7 @@ def verify_clips(page, findings, shots_dir, stem, max_checks=10, pad=14, min_px=
 
 def scan_site(browser, row, shots_dir, script):
     host = row.get("host") or urlparse(row["url"]).hostname
-    rec = {"url": row["url"], "host": host, "category": row.get("category", ""), "ts": time.strftime("%Y-%m-%dT%H:%M:%S"),
+    rec = {"url": row["url"], "host": host, "script": script, "category": row.get("category", ""), "ts": time.strftime("%Y-%m-%dT%H:%M:%S"),
            "views": {}}
     for vname, vp in VIEWPORTS.items():
         ctx = browser.new_context(viewport=vp, ignore_https_errors=True, service_workers="block", accept_downloads=False,
@@ -125,13 +131,13 @@ def scan_site(browser, row, shots_dir, script):
             except Exception:  # noqa: BLE001
                 pass
             page.wait_for_timeout(800)
-            res = page.evaluate(CHECKS_JS, {"script": script, "sentinels": SENTINELS})
+            res = page.evaluate(CHECKS_JS, {"script": script, "sentinels": sentinels(script)})
             text = res.get("pageText", "")
             v.update({
                 "title": res.get("title"),
                 "html_lang": res.get("htmlLang"),
                 "script_share": res.get("scriptShare"),
-                "lao_chars": len(LAO.findall(text)),
+                "script_chars": len(SCRIPT_RE[script].findall(text)),
                 "target_elements": res.get("targetElements"),
                 "fonts": res.get("fonts"),
                 "page_height": res.get("pageHeight"),

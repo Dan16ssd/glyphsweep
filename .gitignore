@@ -7,3 +7,4 @@ _data/
 research/results/shots/
 research/*.log
 research/__pycache__/
+research/results/shots_*/
