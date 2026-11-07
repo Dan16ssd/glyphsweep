@@ -56,7 +56,11 @@ def ocr_blocks(png: bytes, blocks, script):
         if w < 8 or h < 8 or y + h > img.height:
             continue
         pad = 6
-        crop = img.crop((max(0, x - pad), max(0, y - pad), min(img.width, x + w + pad), min(img.height, y + h + pad)))
+        x0, y0 = max(0, x - pad), max(0, y - pad)
+        x1, y1 = min(img.width, x + w + pad), min(img.height, y + h + pad)
+        if x1 - x0 < 8 or y1 - y0 < 8:  # off-screen (carousel slides, hidden menus): nothing to read
+            continue
+        crop = img.crop((x0, y0, x1, y1))
         crop = crop.resize((crop.width * 2, crop.height * 2))
         buf = io.BytesIO()
         crop.save(buf, "PNG")
@@ -142,7 +146,10 @@ def run_page(browser, url, spec, net, with_shot=True):
         if with_shot:
             png, jpg, w, h = shot(page, spec.get("max_height", 3200))
             res["screenshot"] = {"jpeg_b64": jpg, "width": w, "height": h}
-            res["ocr"] = ocr_blocks(png, res.get("ocrBlocks"), spec["script"])
+            try:
+                res["ocr"] = ocr_blocks(png, res.get("ocrBlocks"), spec["script"])
+            except Exception as oe:  # noqa: BLE001  OCR is evidence, never a reason to lose the audit
+                res["ocr"], res["ocr_error"] = [], str(oe)[:200]
     except Exception as e:  # noqa: BLE001
         err = str(e)[:400]
         res = {"findings": [], "links": []}
