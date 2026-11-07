@@ -104,8 +104,8 @@ def main():
          "",
          "## Notes and limits\n",
          "- Detectors are heuristics. Clipping only counts when a screenshot changes after forcing `overflow: visible` (pixel-verified).",
-         "- \"No font delivered\" means no family in the page's font stack is both available and able to draw the script; generic keywords (`sans-serif`) count as \"device default\". Sites that rely on a font most local PCs have (e.g. Phetsarath OT in Laos) are flagged, because phones and foreign devices usually don't.",
-         "- Site lists were assembled by hand from well-known public sites per country; sites that didn't load from Singapore or served too little script text are excluded (see \"of N scanned\").",
+         "- \"No font delivered\" means no family in the page's font stack is both available and able to draw the script; generic keywords (`sans-serif`) count as \"device default\". Most flagged sites declare only Latin fonts (Arial, Poppins, Georgia...); a minority name a font that local PCs usually have but phones and foreign devices don't (Phetsarath OT in Laos, Pyidaungsu / Myanmar3 in Myanmar) without shipping it.",
+         "- Site lists were assembled by hand from well-known public sites per country; sites that didn't load from Singapore, sat behind a bot wall (common for Thai banks and government sites), or served too little script text are excluded (see \"of N scanned\").",
          ("- Burmese: " + (f"{out['myanmar']['zawgyi']} site(s) still name the legacy Zawgyi font. Zawgyi text is not standard Unicode, so it is a separate, deeper problem than rendering." if "myanmar" in out else "")),
          "- Per-site results: `results/scan_<script>.jsonl`. Reproduce: `research/run_scans.sh` on the VM.",
          ]

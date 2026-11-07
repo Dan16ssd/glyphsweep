@@ -1,52 +1,32 @@
-# Lao web rendering scan
+# Southeast Asian script rendering scan
 
-Scanned 92 sites; **82** rendered successfully with Lao content (>= 100 Lao characters).
+We ran GlyphSweep's deterministic detectors on **144 live websites** in four complex Southeast Asian scripts (government, banks, universities, telecoms, e-commerce, news). Homepage only, desktop (1280px) and phone (390px) width, read-only, rendered in the same Chromium + Noto font image the live agent uses, from a Vultr VM in Singapore, November 2026.
 
 ## Headline
 
-- **48%** of Lao websites (39/82) have at least one visible Lao *rendering* problem.
-- **1%** cut off Lao text (clipped tone marks or vowels).
-- **44%** never deliver a Lao font (no font in the stack that the page ships or the browser has can draw Lao), so Lao text renders in whatever the visitor's device happens to have.
-- **62%** do not declare the page as Lao (lang="lo").
+- **51%** of all 144 sites have at least one *visible* rendering problem (pixel-verified clipping, no font that can draw the script, or words broken mid-syllable).
+- **45%** never deliver a font for their own script: the text renders in whatever the visitor's device happens to have.
+- **49%** don't declare the right `lang`, so screen readers pick the wrong voice and browsers the wrong line-breaking.
 
-## Problems by type (share of sites)
+## By script
 
-| Problem | Sites | Share |
-|---|---|---|
-| Lao text cut off (tone marks / vowels clipped), pixel-verified | 1 | 1% |
-| Line height too tight for Lao stacked marks | 71 | 87% |
-| No Lao font delivered (device fallback) | 36 | 44% |
-| Missing or wrong lang="lo" | 51 | 62% |
-| Words broken mid-syllable | 3 | 4% |
-| Letter-spacing pulls marks off consonants | 18 | 22% |
-| Untranslated English UI text | 62 | 76% |
-| Deliberate truncation (excerpt / ellipsis), not a defect | 25 | 30% |
+| | Lao (ພາສາລາວ) | Thai (ภาษาไทย) | Khmer (ភាសាខ្មែរ) | Burmese (မြန်မာဘာသာ) |
+|---|---|---|---|---|
+| Sites with real script content | 82 of 92 scanned | 24 of 48 scanned | 19 of 40 scanned | 19 of 38 scanned |
+| **Visible rendering problem** | **50%** | **38%** | **63%** | **74%** |
+| No font delivered for the script | 45% | 29% | 47% | 74% |
+| Missing / wrong `lang` | 63% | 12% | 42% | 37% |
+| Clipped marks (pixel-verified) | 2% | 0% | 16% | 0% |
+| Mid-syllable breaks | 4% | 8% | 5% | 0% |
+| *Risk:* line height too tight for stacked marks | 87% | 79% | 89% | 79% |
+| *Risk:* letter-spacing on the script | 21% | 8% | 11% | 16% |
+| Untranslated English UI | 76% | 71% | 74% | 84% |
+| Median readiness score (worst viewport) | 61 | 72 | 61 | 61 |
 
-## Readiness score by category (worst of desktop/phone, 100 = no problems)
+## Notes and limits
 
-| Category | Sites | Median | Mean |
-|---|---|---|---|
-| government | 46 | 61 | 61 |
-| education | 16 | 67 | 66 |
-| business/other | 14 | 60 | 63 |
-| bank | 3 | 61 | 62 |
-| telecom | 2 | 86 | 86 |
-| news | 1 | 65 | 65 |
-
-## Desktop vs phone
-
-- Sites with a problem that only appears on phone width: 10
-- Only on desktop width: 15
-
-## Most common fonts on Lao text
-
-- "Phetsarath OT": 12
-- "Phetsarath OT", Helvetica, sans-serif: 10
-- "Noto Sans Lao": 7
-- "Noto Sans Lao", sans-serif: 6
-- "Open Sans", Helvetica, Arial, sans-serif, Phetsarath_OT: 4
-- "Open Sans", Helvetica, Arial, "Noto Sans", "Noto Sans Lao", dashicons: 3
-- Bouasavanh, Roboto, "Saysettha OT", "Phetsarath OT", "Saysettha MX", Helvetica, Arial, sans-serif: 3
-- "Saysettha OT": 3
-- "Open Sans", Helvetica, Arial, "Noto Serif Lao", dashicons: 3
-- "Saysettha OT", Helvetica, sans-serif: 2
+- Detectors are heuristics. Clipping only counts when a screenshot changes after forcing `overflow: visible` (pixel-verified).
+- "No font delivered" means no family in the page's font stack is both available and able to draw the script; generic keywords (`sans-serif`) count as "device default". Most flagged sites declare only Latin fonts (Arial, Poppins, Georgia...); a minority name a font that local PCs usually have but phones and foreign devices don't (Phetsarath OT in Laos, Pyidaungsu / Myanmar3 in Myanmar) without shipping it.
+- Site lists were assembled by hand from well-known public sites per country; sites that didn't load from Singapore, sat behind a bot wall (common for Thai banks and government sites), or served too little script text are excluded (see "of N scanned").
+- Burmese: 0 site(s) still name the legacy Zawgyi font. Zawgyi text is not standard Unicode, so it is a separate, deeper problem than rendering.
+- Per-site results: `results/scan_<script>.jsonl`. Reproduce: `research/run_scans.sh` on the VM.

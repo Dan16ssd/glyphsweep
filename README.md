@@ -10,7 +10,7 @@ Built for the lablab.ai × Vultr **Agent Rush** hackathon, Challenge 1 "Blast Ra
 
 ## Why this matters
 
-Over 100 million people read these scripts every day. On most sites, their text renders badly:
+Over 150 million people read these scripts every day. On most sites, their text renders badly:
 
 - **Tone marks and stacked vowels get clipped.** Fixed-height boxes with `overflow:hidden` and a Latin-tuned `line-height` cut off ◌່ ◌້ ◌ິ ◌ຸ.
 - **No font for the script.** The site's brand font has no Lao glyphs, so each visitor sees whatever their device has. On many phones and kiosks that means empty boxes ("tofu").
@@ -21,16 +21,18 @@ Over 100 million people read these scripts every day. On most sites, their text 
 
 Localization QA is a paid industry, but its tools are built for Latin text. GlyphSweep is built for these scripts specifically.
 
-## We measured it: 82 live Lao websites
+## We measured it: 144 live websites, four scripts
 
-We ran the GlyphSweep detectors (read-only, homepage only, desktop + phone width) on 92 Lao government, university, bank, telecom and business sites; 82 rendered with real Lao content.
+We ran the GlyphSweep detectors (read-only, homepage only, desktop + phone width, same sandbox image as the live agent) on government, bank, university, telecom and news sites in Laos, Thailand, Cambodia and Myanmar.
 
-- **48%** have at least one visible Lao rendering problem.
-- **44%** never deliver a Lao font — Lao text renders in whatever the visitor's device happens to have.
-- **62%** don't declare `lang="lo"`, so screen readers and line-breaking use the wrong language.
-- **87%** use a line height too tight for Lao stacked marks; **22%** apply letter-spacing to Lao.
+| | Lao | Thai | Khmer | Burmese | **All** |
+|---|---|---|---|---|---|
+| Sites with real script content | 82 | 24 | 19 | 19 | **144** |
+| **Visible rendering problem** | 50% | 38% | 63% | 74% | **51%** |
+| No font delivered for the script | 45% | 29% | 47% | 74% | **45%** |
+| Missing / wrong `lang` | 63% | 12% | 42% | 37% | **49%** |
 
-Full table, method and per-category scores: [`research/RESULTS.md`](research/RESULTS.md). Scripts: `research/scan.py`, `research/summarize.py`.
+Method, limits and the full table: [`research/RESULTS.md`](research/RESULTS.md). Reproduce with `research/run_scans.sh`.
 
 ## Who pays for this
 
@@ -130,7 +132,7 @@ deploy/    setup_vultr.sh
    cp .env.example .env && nano .env          # VULTR_INFERENCE_API_KEY=...
    bash deploy/setup_vultr.sh                 # Docker + gVisor + build + run on :80
    ```
-4. Open `https://<vm-ip-with-dashes>.sslip.io/` (HTTPS via Caddy + Let's Encrypt) and click **Run hostile demo shop**.
+4. Open `https://<vm-ip-with-dashes>.sslip.io/` (HTTPS via Caddy + Let's Encrypt), pick a script and click **Run hostile demo shop**. The shop exists in Lao, Thai, Khmer and Burmese (`control/demo/build_variants.py`).
 
 `/api/health` reports the active sandbox runtime (`runsc` = gVisor) and whether the model is configured.
 

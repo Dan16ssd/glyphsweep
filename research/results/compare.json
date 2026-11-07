@@ -1,0 +1,155 @@
+{
+ "lao": {
+  "sites": 82,
+  "visible": 50,
+  "no_font": 45,
+  "wrong_lang": 63,
+  "clipped": 2,
+  "syllable_break": 4,
+  "tight_line_height": 87,
+  "letter_spacing": 21,
+  "untranslated": 76,
+  "zawgyi": 0,
+  "median_score": 61,
+  "counts": {
+   "visible": 41,
+   "no_font": 37,
+   "wrong_lang": 52
+  },
+  "by_category": {
+   "government": 45,
+   "education": 17,
+   "business/other": 14,
+   "bank": 3,
+   "news": 1,
+   "telecom": 2
+  },
+  "name": "Lao",
+  "native": "ພາສາລາວ",
+  "lang": "lo",
+  "country": "Laos",
+  "readers_m": 7.5,
+  "scanned": 92
+ },
+ "thai": {
+  "sites": 24,
+  "visible": 38,
+  "no_font": 29,
+  "wrong_lang": 12,
+  "clipped": 0,
+  "syllable_break": 8,
+  "tight_line_height": 79,
+  "letter_spacing": 8,
+  "untranslated": 71,
+  "zawgyi": 0,
+  "median_score": 72,
+  "counts": {
+   "visible": 9,
+   "no_font": 7,
+   "wrong_lang": 3
+  },
+  "by_category": {
+   "government": 6,
+   "education": 4,
+   "business/other": 3,
+   "bank": 6,
+   "news": 3,
+   "telecom": 2
+  },
+  "name": "Thai",
+  "native": "ภาษาไทย",
+  "lang": "th",
+  "country": "Thailand",
+  "readers_m": 70,
+  "scanned": 48
+ },
+ "khmer": {
+  "sites": 19,
+  "visible": 63,
+  "no_font": 47,
+  "wrong_lang": 42,
+  "clipped": 16,
+  "syllable_break": 5,
+  "tight_line_height": 89,
+  "letter_spacing": 11,
+  "untranslated": 74,
+  "zawgyi": 0,
+  "median_score": 61,
+  "counts": {
+   "visible": 12,
+   "no_font": 9,
+   "wrong_lang": 8
+  },
+  "by_category": {
+   "government": 7,
+   "education": 4,
+   "business/other": 2,
+   "news": 4,
+   "telecom": 2
+  },
+  "name": "Khmer",
+  "native": "ភាសាខ្មែរ",
+  "lang": "km",
+  "country": "Cambodia",
+  "readers_m": 17,
+  "scanned": 40
+ },
+ "myanmar": {
+  "sites": 19,
+  "visible": 74,
+  "no_font": 74,
+  "wrong_lang": 37,
+  "clipped": 0,
+  "syllable_break": 0,
+  "tight_line_height": 79,
+  "letter_spacing": 16,
+  "untranslated": 84,
+  "zawgyi": 0,
+  "median_score": 61,
+  "counts": {
+   "visible": 14,
+   "no_font": 14,
+   "wrong_lang": 7
+  },
+  "by_category": {
+   "government": 5,
+   "education": 1,
+   "business/other": 1,
+   "bank": 2,
+   "news": 7,
+   "telecom": 3
+  },
+  "name": "Burmese",
+  "native": "မြန်မာဘာသာ",
+  "lang": "my",
+  "country": "Myanmar",
+  "readers_m": 54,
+  "scanned": 38
+ },
+ "_all": {
+  "sites": 144,
+  "visible": 51,
+  "no_font": 45,
+  "wrong_lang": 49,
+  "clipped": 3,
+  "syllable_break": 4,
+  "tight_line_height": 83,
+  "letter_spacing": 17,
+  "untranslated": 74,
+  "zawgyi": 0,
+  "median_score": 61,
+  "counts": {
+   "visible": 74,
+   "no_font": 65,
+   "wrong_lang": 70
+  },
+  "by_category": {
+   "government": 63,
+   "education": 26,
+   "business/other": 20,
+   "bank": 11,
+   "news": 15,
+   "telecom": 9
+  }
+ }
+}

@@ -80,6 +80,13 @@
   .stat .n { font-size:40px; font-weight:800; letter-spacing:-.03em; line-height:1; color:var(--gold); }
   .stat .n.red { color:var(--bad); } .stat .n.jade { color:var(--jade); }
   .stat p { margin:8px 0 0; color:var(--mute); font-size:13.5px; line-height:1.45; }
+  .scripts { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-top:14px; }
+  @media (max-width:860px) { .scripts { grid-template-columns:1fr 1fr; } }
+  .sc { display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:4px 12px; padding:14px 16px; border-radius:14px; background:var(--glass); border:1px solid var(--edge); }
+  .sc .nat { grid-row:span 2; font:700 26px/1.4 var(--lao); color:var(--gold); min-width:58px; }
+  .sc b { font-size:14px; } .sc em { font-style:normal; font-weight:800; color:var(--bad); font-size:18px; text-align:right; }
+  .sc i { grid-column:2 / 4; height:6px; border-radius:6px; background:linear-gradient(90deg, var(--bad) var(--v), rgba(255,255,255,.08) var(--v)); }
+  .sc small { grid-column:1 / 4; color:#7d79a3; font-size:12px; }
   .src-note { color:#7d79a3; font-size:12.5px; margin:10px 2px 0; }
 
   /* ---------- how it works ---------- */
@@ -184,12 +191,18 @@
 
 <div class="wrap" id="evidence">
   <div class="stats">
-    <div class="stat"><div class="n">82</div><p>live Lao websites scanned: government, banks, universities, telecoms</p></div>
-    <div class="stat"><div class="n red">48%</div><p>have a visible Lao rendering problem</p></div>
-    <div class="stat"><div class="n red">44%</div><p>never deliver a Lao font, so text depends on the visitor's phone</p></div>
-    <div class="stat"><div class="n">62%</div><p>don't declare <code>lang="lo"</code>, so screen readers use the wrong voice</p></div>
+    <div class="stat"><div class="n">144</div><p>live websites measured in Lao, Thai, Khmer and Burmese: government, banks, universities, telecoms, news</p></div>
+    <div class="stat"><div class="n red">51%</div><p>have a visible rendering problem: clipped marks, broken syllables or no font for the script</p></div>
+    <div class="stat"><div class="n red">45%</div><p>never deliver a font for their own language, so text depends on the visitor's phone</p></div>
+    <div class="stat"><div class="n">49%</div><p>declare the wrong <code>lang</code>, so screen readers read it in the wrong voice</p></div>
   </div>
-  <p class="src-note">Measured with GlyphSweep's own detectors, desktop + phone width, Nov 2026. <a href="https://github.com/Dan16ssd/glyphsweep/blob/main/research/RESULTS.md" target="_blank" rel="noopener">Method &amp; data →</a></p>
+  <div class="scripts">
+    <div class="sc"><span class="nat" lang="lo">ລາວ</span><b>Lao</b><i style="--v:50%"></i><em>50%</em><small>82 sites</small></div>
+    <div class="sc"><span class="nat" lang="th">ไทย</span><b>Thai</b><i style="--v:38%"></i><em>38%</em><small>24 sites</small></div>
+    <div class="sc"><span class="nat" lang="km">ខ្មែរ</span><b>Khmer</b><i style="--v:63%"></i><em>63%</em><small>19 sites</small></div>
+    <div class="sc"><span class="nat" lang="my">မြန်မာ</span><b>Burmese</b><i style="--v:74%"></i><em>74%</em><small>19 sites</small></div>
+  </div>
+  <p class="src-note">Share of sites with a visible rendering problem, by script. Measured with GlyphSweep's own detectors at desktop + phone width from a Vultr VM, Nov 2026. <a href="https://github.com/Dan16ssd/glyphsweep/blob/main/research/RESULTS.md" target="_blank" rel="noopener">Method, limits &amp; data →</a></p>
 </div>
 
 <section id="how"><div class="wrap">
