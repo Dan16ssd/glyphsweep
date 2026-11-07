@@ -201,6 +201,30 @@ def run_job(job):
             css, source, after, residual = None, "deterministic", None, None
             fixable = [f for f in before if f["check"] not in SOURCE_ONLY]
             job["rounds"] = []
+            candidates = []
+
+            def prove(rnd, source, css):
+                """Inject `css` into a brand-new sandbox, re-run every detector + OCR, record the measured result."""
+                n = len(job["containment"]) + 1
+                event(job, "prove", "running", f"Sandbox #{n}: re-render every page with the round-{rnd} ({source}) patch, re-run detectors + OCR")
+                res3, ev3 = sandbox.dispatch(f"prove-r{rnd}", [pg["url"] for pg in pages], script, host, css_patch=css, internal_ok=internal_ok)
+                job["containment"].append(ev3)
+                if not res3:
+                    event(job, "prove", "warn", f"Proof sandbox #{n} returned no result")
+                    return None
+                after_pages, bare_after = collect(jid, f"after_r{rnd}", res3)
+                aft = [f for pg in after_pages for f in pg.get("findings", [])]
+                job["net"].append(res3.get("net"))
+                resid = residual_for_model(aft)
+                cand = {"round": rnd, "source": source, "css": css, "after": aft, "residual": resid, "score": score(aft),
+                        "after_pages": [{k: pg.get(k) for k in ("url", "image", "ocr")} for pg in after_pages],
+                        "bare_after": bare_after}
+                candidates.append(cand)
+                job["rounds"].append({"round": rnd, "source": source, "css": css, "open_after": len(aft), "score": cand["score"],
+                                      "css_fixable_open": len(resid), "bare_cer": mean_cer(bare_after)})
+                event(job, "prove", "done", f"Sandbox #{n} destroyed={ev3['destroyed']} · round {rnd} ({source}): "
+                      f"{len(aft)} findings left ({len(resid)} CSS-fixable) · score {cand['score']}")
+                return cand
             for rnd in range(1, (MAX_ROUNDS if llm.enabled() else 1) + 1):
                 if not fixable or (rnd > 1 and not residual):
                     break
@@ -227,24 +251,27 @@ def run_job(job):
                     new_css, source = llm.fallback_css(script, before), "deterministic"
                     event(job, "fix", "done", "Using the deterministic fixer's patch")
                 css = new_css
-                n = len(job["containment"]) + 1
-                event(job, "prove", "running", f"Sandbox #{n}: re-render every page with the round-{rnd} patch, re-run detectors + OCR")
-                res3, ev3 = sandbox.dispatch(f"prove-r{rnd}", [pg["url"] for pg in pages], script, host, css_patch=css, internal_ok=internal_ok)
-                job["containment"].append(ev3)
-                if not res3:
-                    event(job, "prove", "warn", f"Proof sandbox #{n} returned no result")
+                cand = prove(rnd, source, css)
+                if not cand:
                     break
-                after_pages, bare_after = collect(jid, f"after_r{rnd}", res3)
-                after = [f for pg in after_pages for f in pg.get("findings", [])]
-                job["after"] = after
-                job["after_pages"] = [{k: pg.get(k) for k in ("url", "image", "ocr")} for pg in after_pages]
-                job["bare_after"] = bare_after
-                job["net"].append(res3.get("net"))
-                residual = residual_for_model(after)
-                job["rounds"].append({"round": rnd, "source": source, "css": css, "open_after": len(after),
-                                      "css_fixable_open": len(residual), "bare_cer": mean_cer(bare_after)})
-                event(job, "prove", "done", f"Sandbox #{n} destroyed={ev3['destroyed']} · round {rnd}: "
-                      f"{len(after)} findings left ({len(residual)} CSS-fixable)")
+                residual = cand["residual"]
+            # Candidate competition: nothing is trusted, everything is measured. When the model wrote the
+            # patch, also prove the deterministic patch and deterministic+model, then keep the best score.
+            model_css = next((c["css"] for c in reversed(candidates) if c["source"] == "model"), None)
+            if fixable and model_css:
+                det = llm.fallback_css(script, before)
+                event(job, "fix", "done", "Candidate competition: also proving the deterministic patch and deterministic + model")
+                prove(len(candidates) + 1, "deterministic", det)
+                prove(len(candidates) + 1, "deterministic+model", det + "\n/* model */\n" + model_css)
+            if candidates:
+                best = max(candidates, key=lambda c: (c["score"], -len(c["after"])))
+                css, source, after = best["css"], best["source"], best["after"]
+                job.update(after=after, after_pages=best["after_pages"], bare_after=best["bare_after"])
+                for r in job["rounds"]:
+                    r["chosen"] = r["round"] == best["round"]
+                if len(candidates) > 1:
+                    event(job, "prove", "done", "Kept the best proven patch: " + " · ".join(
+                        f"{c['source']} {c['score']}" + (" ✓" if c is best else "") for c in candidates))
             job["patch"] = {"css": css, "source": source}
 
             if after is not None:
