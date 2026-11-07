@@ -4,6 +4,8 @@
 
 GlyphSweep is a web agent that audits how a website renders **Lao, Thai, Khmer and Burmese**, then writes a fix and **proves** that fix by re-measuring the page. Every page it touches is opened inside a throwaway, gVisor-isolated browser sandbox on Vultr.
 
+**Live demo:** https://45-77-254-54.sslip.io/ — click **Run hostile demo shop**.
+
 Built for the lablab.ai × Vultr **Agent Rush** hackathon, Challenge 1 "Blast Radius Zero" (Pattern B: sandboxed browser use).
 
 ## Why this matters
@@ -128,7 +130,7 @@ deploy/    setup_vultr.sh
    cp .env.example .env && nano .env          # VULTR_INFERENCE_API_KEY=...
    bash deploy/setup_vultr.sh                 # Docker + gVisor + build + run on :80
    ```
-4. Open `http://<vm-ip>/` and click **Run hostile demo shop**.
+4. Open `https://<vm-ip-with-dashes>.sslip.io/` (HTTPS via Caddy + Let's Encrypt) and click **Run hostile demo shop**.
 
 `/api/health` reports the active sandbox runtime (`runsc` = gVisor) and whether the model is configured.
 

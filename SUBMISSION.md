@@ -34,7 +34,7 @@ A web agent that audits how sites render Lao/Thai/Khmer/Burmese — clipped tone
 Built by a Lao developer who also built a Lao speech-recognition model (5.98% CER on FLEURS) — this is a problem we see every day.
 
 ## Links
-- Live demo: http://45.77.254.54/
+- Live demo: https://45-77-254-54.sslip.io/
 - GitHub: https://github.com/Dan16ssd/glyphsweep
 
 ## Tags
