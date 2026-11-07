@@ -126,11 +126,20 @@ async ({ script, sentinels }) => {
     const clipsY = ["hidden", "clip"].includes(cs.overflowY) || ["hidden", "clip"].includes(cs.overflow);
     const clipsX = ["hidden", "clip"].includes(cs.overflowX) || ["hidden", "clip"].includes(cs.overflow);
 
-    // 3. Clipped text (stacked vowels / tone marks cut off, or text cut horizontally)
-    if ((clipsY && el.scrollHeight > el.clientHeight + 1) || (clipsX && el.scrollWidth > el.clientWidth + 1)) {
+    // 3. Clipped text. Distinguish the Lao bug (part of a line cut: marks/vowels lost) from
+    //    deliberate truncation (whole lines hidden by a card/line-clamp, or a one-line ellipsis).
+    const overY = el.scrollHeight - el.clientHeight;
+    const clamped = (cs.webkitLineClamp && cs.webkitLineClamp !== "none") || cs.textOverflow === "ellipsis";
+    if (clipsY && overY > 1 && overY < lh * 0.9 && !clamped) {
       add("text_clipped", "high", el, {
+        scrollHeight: el.scrollHeight, clientHeight: el.clientHeight, cutPx: overY, lineHeightPx: Math.round(lh),
+        overflow: cs.overflow, why: "Part of a line is cut off: stacked vowels / tone marks are lost.",
+      });
+    } else if ((clipsY && overY >= lh * 0.9) || (clipsX && el.scrollWidth > el.clientWidth + 1) || (clipsY && overY > 1 && clamped)) {
+      add("text_truncated", "low", el, {
         scrollHeight: el.scrollHeight, clientHeight: el.clientHeight,
         scrollWidth: el.scrollWidth, clientWidth: el.clientWidth, overflow: cs.overflow,
+        why: "Whole lines / line end hidden (excerpt, line-clamp or ellipsis). Usually deliberate; not counted as a Lao defect.",
       });
     } else if (clipsY && (() => { const sp = inkSpill(el, cs); return sp.top > 1 || sp.bottom > 1; })()) {
       // Layout says it fits, but glyph ink (stacked vowels / tone marks) pokes outside an
@@ -142,7 +151,7 @@ async ({ script, sentinels }) => {
         why: "Tone marks / vowels extend beyond a fixed-height overflow:hidden box and are cut off.",
       });
     } else if (cs.textOverflow === "ellipsis" && el.scrollWidth > el.clientWidth + 1) {
-      add("text_clipped", "medium", el, { ellipsis: true });
+      add("text_truncated", "low", el, { ellipsis: true });
     }
 
     // 4. Line height too tight for stacked diacritics
@@ -171,24 +180,36 @@ async ({ script, sentinels }) => {
     const ctx = document.createElement("canvas").getContext("2d");
     const w = (fam) => { ctx.font = `40px ${fam}`; return ctx.measureText(SAMPLE[script]).width; };
     const sentinelOk = Math.abs(w(`"${sentinels[0]}"`) - w(`"${sentinels[1]}"`)) > 0.5;
+    const GENERIC = ["serif", "sans-serif", "monospace", "system-ui", "cursive", "fantasy", "ui-sans-serif", "ui-serif", "ui-monospace", "-apple-system", "blinkmacsystemfont"];
+    const loadedWebfonts = new Set([...document.fonts].filter((f) => f.status === "loaded").map((f) => f.family.replace(/["']/g, "").toLowerCase()));
+    const covers = (family) => Math.abs(w(`"${family}", "${sentinels[0]}"`) - w(`"${family}", "${sentinels[1]}"`)) < 0.5;
     for (const el of targetOwners) {
       const fam = getComputedStyle(el).fontFamily;
       if (fonts[fam]) { fonts[fam].elements++; continue; }
-      const primary = fam.split(",")[0].trim().replace(/^["']|["']$/g, "");
-      const generic = ["serif", "sans-serif", "monospace", "system-ui", "cursive", "fantasy", "ui-sans-serif", "ui-serif"].includes(primary);
-      let covers = null;
-      if (sentinelOk && !generic) {
-        covers = Math.abs(w(`"${primary}", "${sentinels[0]}"`) - w(`"${primary}", "${sentinels[1]}"`)) < 0.5;
+      const stack = fam.split(",").map((s) => s.trim().replace(/^["']|["']$/g, "")).filter(Boolean);
+      const primary = stack[0] || "";
+      let coveredBy = null;
+      if (sentinelOk) {
+        // first family in the declared stack that actually draws the script (generic keywords = device default)
+        for (const f of stack) {
+          if (GENERIC.includes(f.toLowerCase())) break;
+          if (covers(f)) { coveredBy = f; break; }
+        }
       }
-      const webfont = [...document.fonts].some((f) => f.family.replace(/["']/g, "") === primary && f.status === "loaded");
-      fonts[fam] = { primary, generic, covers, webfont, elements: 1, el };
+      const webfont = coveredBy ? loadedWebfonts.has(coveredBy.toLowerCase()) : false;
+      fonts[fam] = { primary, generic: GENERIC.includes(primary.toLowerCase()), covers: sentinelOk ? !!coveredBy : null,
+                     coveredBy, webfont, elements: 1, el };
     }
     for (const [fam, info] of Object.entries(fonts)) {
-      if (info.generic || info.covers === false) {
-        add("font_fallback", info.webfont ? "high" : "high", info.el, {
-          fontFamily: fam, primary: info.primary, primaryCoversScript: info.covers,
-          shipsWebfont: info.webfont, elements: info.elements,
-          why: "The page never supplies a font that contains this script, so each visitor sees whatever their device has (or tofu boxes).",
+      if (info.covers === false) {
+        add("font_fallback", "high", info.el, {
+          fontFamily: fam, primary: info.primary, coveredBy: null, shipsWebfont: false, elements: info.elements,
+          why: "No font in the page's font stack contains this script, so each visitor sees whatever their device has (or tofu boxes).",
+        });
+      } else if (info.covers && !info.webfont) {
+        add("font_fallback", "medium", info.el, {
+          fontFamily: fam, primary: info.primary, coveredBy: info.coveredBy, shipsWebfont: false, elements: info.elements,
+          why: `Lao is drawn by "${info.coveredBy}", which is installed on this machine but not shipped as a webfont; phones without it fall back.`,
         });
       }
       delete info.el;
