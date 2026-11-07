@@ -31,6 +31,11 @@ DATA = Path(os.environ.get("GS_DATA", "/data/jobs"))
 DATA.mkdir(parents=True, exist_ok=True)
 DEMO_HOST = os.environ.get("GS_DEMO_HOST", "glyphsweep-demo")
 DEMO_URL = f"http://{DEMO_HOST}:8000/demo/shop.html"
+
+
+def demo_url(script):
+    """The hostile demo shop exists in every supported script (same bugs, same attacks)."""
+    return DEMO_URL if script == "lao" else f"http://{DEMO_HOST}:8000/demo/{script}/shop.html"
 MAX_PAGES = int(os.environ.get("GS_MAX_PAGES", "3"))
 SEM = threading.BoundedSemaphore(int(os.environ.get("GS_CONCURRENCY", "2")))
 
@@ -76,8 +81,14 @@ def score(findings):
     """0-100 readiness: 100 = no issues; decays smoothly with weighted severity.
     Findings the vision model judged NOT visible to a reader don't count."""
     import math
-    counted = [f for f in findings if (f.get("vision") or {}).get("visible") != "no"]
-    return round(100 * math.exp(-sum(SEV.get(f["severity"], 1) for f in counted) / 80))
+    # Each problem TYPE counts once, at its worst severity (same formula as research/scan.py), so a big
+    # site isn't scored 0 just for having 500 elements with the same CSS rule.
+    worst = {}
+    for f in findings:
+        if (f.get("vision") or {}).get("visible") == "no" or f["check"] == "text_truncated":
+            continue
+        worst[f["check"]] = max(worst.get(f["check"], 0), SEV.get(f["severity"], 1))
+    return round(100 * math.exp(-sum(worst.values()) / 40))
 
 
 def save_shot(job_id, name, shot):
@@ -366,7 +377,7 @@ def create_job(body: JobIn, request: Request):
         for old in sorted(JOBS, key=lambda k: JOBS[k]["created"])[:-100]:  # keep memory bounded
             if JOBS[old]["status"] in ("done", "error"):
                 JOBS.pop(old, None)
-    url = DEMO_URL if body.demo else body.url.strip()
+    url = demo_url(body.script) if body.demo else body.url.strip()
     host = urlparse(url).hostname if body.demo else validate_url(url)
     jid = uuid.uuid4().hex[:12]
     (DATA / jid).mkdir(parents=True, exist_ok=True)

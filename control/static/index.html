@@ -178,7 +178,7 @@
     <button class="primary" id="go">Sweep site →</button>
   </form>
   <div class="demo-row"><button class="demo" type="button" id="demo"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" style="vertical-align:-2px;margin-right:6px"><path d="M12 2l9 4v6c0 5-3.8 8.6-9 10-5.2-1.4-9-5-9-10V6z"/><path d="M9 12l2 2 4-4"/></svg>Run hostile demo shop</button>
-    <span>A Lao coffee shop that tries to steal cloud credentials and hijack the AI. Watch it fail.</span></div>
+    <span>A coffee shop, in whichever script you picked, that tries to steal cloud credentials and hijack the AI. Watch it fail.</span></div>
   <div class="chips"><span>Disposable gVisor sandbox per stage</span><span>Zero secrets inside</span><span>Vultr Serverless Inference</span></div>
 </div></header>
 
@@ -284,7 +284,7 @@ async function start(body) {
 }
 function alertBox(msg) { $("#events").innerHTML = `<div class="ev"><span class="dot error"></span><div>${esc(msg)}</div></div>`; }
 $("#f").onsubmit = (e) => { e.preventDefault(); start({ url: $("#url").value, script: $("#script").value }); };
-$("#demo").onclick = () => { $("#script").value = "lao"; start({ url: "", script: "lao", demo: true }); };
+$("#demo").onclick = () => start({ url: "", script: $("#script").value, demo: true });
 
 async function poll(id, fails = 0) {
   clearTimeout(timer);
