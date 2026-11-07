@@ -4,5 +4,3 @@ __pycache__/
 /data/
 .pytest_cache/
 _data/
-.pytest_cache/
-_data/
