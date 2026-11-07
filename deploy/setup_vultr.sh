@@ -28,8 +28,10 @@ fi
 docker info --format '{{json .Runtimes}}' | grep -q runsc && echo "gVisor runtime: OK"
 
 [ -f .env ] || cp .env.example .env
+IP=$(curl -s https://api.ipify.org)
+grep -q '^GS_DOMAIN=.' .env || { sed -i '/^GS_DOMAIN=/d' .env; echo "GS_DOMAIN=${IP//./-}.sslip.io" >> .env; }
 docker compose --profile build build
-docker compose up -d control demo
+docker compose up -d control demo caddy
 
-if command -v ufw >/dev/null; then ufw allow 22/tcp; ufw allow 80/tcp; ufw --force enable; fi
-echo "GlyphSweep is up: http://$(curl -s https://api.ipify.org)/"
+if command -v ufw >/dev/null; then ufw allow 22/tcp; ufw allow 80/tcp; ufw allow 443/tcp; ufw --force enable; fi
+echo "GlyphSweep is up: https://$(grep '^GS_DOMAIN=' .env | cut -d= -f2)/"

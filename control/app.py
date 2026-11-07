@@ -345,7 +345,10 @@ def startup_models():
 def create_job(body: JobIn, request: Request):
     if body.script not in llm.LANG_NAME:
         raise HTTPException(400, "script must be one of " + ", ".join(llm.LANG_NAME))
-    ip = request.client.host if request.client else "?"  # no reverse proxy in front; XFF would be spoofable
+    # Caddy is the only ingress (control publishes no ports) and overwrites X-Forwarded-For with the
+    # real peer address, so its last entry is trustworthy. Without Caddy, fall back to the socket peer.
+    xff = request.headers.get("x-forwarded-for", "")
+    ip = xff.split(",")[-1].strip() if xff else (request.client.host if request.client else "?")
     now = time.time()
     with LOCK:
         RATE[ip] = [t for t in RATE.get(ip, []) if now - t < 3600]
