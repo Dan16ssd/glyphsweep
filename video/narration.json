@@ -32,6 +32,10 @@
   "text": "Now the proof. We render the page on a phone with no Thai font, and read it back with OCR. Before the fix, almost all of the text is unreadable. After the patch, OCR reads it. Proven in a fresh sandbox, not assumed."
  },
  {
+  "id": "075-real",
+  "text": "And it's not just our demo shop. This is a real site: Keoset Community Coffee, in Lao. On a phone without a Lao font, its Lao text turns into boxes, and OCR can read almost none of it. GlyphSweep's proven patch fixes that: the OCR error falls from ninety-four percent to seven, and the score rises from fifty to seventy-four."
+ },
+ {
   "id": "08-trust",
   "text": "And we don't trust the AI either. The model's patch competes with a deterministic one. Each is measured in its own sandbox, and only the best result ships. The score goes from thirty three to seventy four, in all four scripts."
  },

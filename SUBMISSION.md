@@ -16,6 +16,8 @@ GlyphSweep — a sandboxed AI agent that fixes how the web renders Southeast Asi
 4. **Nothing is trusted, everything is measured.** The model's patch, a deterministic patch and their combination each get proven in a brand-new sandbox; the agent keeps the best *measured* result and shows the scoreboard. Residual problems go back to the model with the measured values for a second round.
 5. **A human approves before anything ships.** The proven patch stays locked until a person reviews the before/after and clicks *Approve & release*; the decision is logged in the agent timeline.
 
+**On a real site: [laocoffee.org/lao/](https://laocoffee.org/lao/)** (Keoset Community Coffee, Northern Laos). The site's theme ships no Lao font, so on a phone without one the Lao text is boxes. Bare-phone OCR read "ຂໍຕ້ອນຮັບ ກາເຟແກ່ວແສດ" as `ມ ?(າດດ%`; after GlyphSweep's proven patch it reads `ຂໍຕ໋ອນຮັບ ກາເຟແກ່ວແສດ`. **OCR error 94% → 7%, score 50 → 74**, 11/12 problems confirmed visible by the vision model, 6 sandboxes used and destroyed, 75 off-allowlist requests blocked. [Live report](https://45-77-254-54.sslip.io/#b3a71cc89b75).
+
 **Results on the hostile demo shop** (same shop, same attacks, in every script; score 33 → 74 in each):
 
 | Script | Bare-device OCR error before → after |

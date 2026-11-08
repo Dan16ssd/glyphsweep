@@ -1,5 +1,5 @@
 {
- "total": 240.808,
+ "total": 261.332,
  "scenes": [
   {
    "id": "01-story",
@@ -50,34 +50,40 @@
    "voice": 129.532
   },
   {
-   "id": "08-trust",
+   "id": "075-real",
    "start": 144.056,
-   "duration": 13.708,
+   "duration": 20.524,
    "voice": 144.056
   },
   {
+   "id": "08-trust",
+   "start": 164.58,
+   "duration": 13.708,
+   "voice": 164.58
+  },
+  {
    "id": "085-approve",
-   "start": 157.764,
+   "start": 178.288,
    "duration": 9.244,
-   "voice": 157.764
+   "voice": 178.288
   },
   {
    "id": "086-redteam",
-   "start": 167.008,
+   "start": 187.532,
    "duration": 25.444,
-   "voice": 167.008
+   "voice": 187.532
   },
   {
    "id": "087-business",
-   "start": 192.452,
+   "start": 212.976,
    "duration": 34.252,
-   "voice": 192.452
+   "voice": 212.976
   },
   {
    "id": "09-close",
-   "start": 226.704,
+   "start": 247.228,
    "duration": 14.104,
-   "voice": 226.704
+   "voice": 247.228
   }
  ]
 }

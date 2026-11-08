@@ -2,6 +2,7 @@ import React from 'react';
 import { AbsoluteFill, Img, interpolate, staticFile, useCurrentFrame } from 'remotion';
 import { C, F, cue, fade, pop } from './theme';
 import rtJson from '../public/redteam.json';
+import lcJson from '../public/laocoffee.json';
 
 const clamp = { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' } as const;
 
@@ -310,6 +311,65 @@ export const RedTeam = () => {
         </div>
         <div style={{ marginTop: 22, display: 'inline-block', border: `2px solid ${C.bad}`, borderRadius: 12, padding: '6px 16px', fontSize: 22, fontWeight: 700,
           color: C.bad }}>● real run {RT.id}</div>
+      </div>
+    </AbsoluteFill>
+  );
+};
+
+// ---------------------------------------------------------------- real site (real sweep: public/laocoffee.json)
+const LC = lcJson as { id: string; url: string; score: { before: number; after: number }; ocr: { cer_before: number; cer_after: number };
+  blocked: number; sandboxes: number; lines: { dom: string; before: string; after: string }[] };
+
+const Pane: React.FC<{ src: string; label: string; color: string; ocr: string; at: number; x: number; scroll: number; good: boolean }> =
+  ({ src, label, color, ocr, at, x, scroll, good }) => {
+    const f = useCurrentFrame();
+    const p = pop(f, at);
+    return (
+      <div style={{ position: 'absolute', left: x, top: 220, width: 800, opacity: p, transform: `translateY(${(1 - p) * 30}px)`, fontFamily: F.body }}>
+        <div style={{ fontSize: 26, fontWeight: 800, color, marginBottom: 10 }}>{label}</div>
+        <div style={{ height: 420, overflow: 'hidden', borderRadius: 16, border: `3px solid ${color}`, background: '#fff', position: 'relative' }}>
+          <Img src={staticFile(src)} style={{ width: 800, position: 'absolute', top: -scroll }} />
+        </div>
+        <div style={{ marginTop: 10, background: 'rgba(15,13,46,.92)', border: `1px solid ${C.line}`, borderRadius: 12, padding: '6px 16px' }}>
+          <div style={{ fontSize: 18, color: C.muted, letterSpacing: 2, textTransform: 'uppercase', fontWeight: 700 }}>What OCR reads from the pixels</div>
+          <div style={{ fontFamily: F.lao, fontSize: 30, color: good ? C.teal : C.bad, lineHeight: 1.6 }}>{ocr}</div>
+        </div>
+      </div>
+    );
+  };
+
+export const RealSite = () => {
+  const f = useCurrentFrame();
+  const id = '075-real';
+  const real = cue(id, /real/, 2);
+  const boxes = cue(id, /boxes/, 7);
+  const fix = cue(id, /patch/, 11);
+  const nums = cue(id, /ninety-four/, 13);
+  const scroll = interpolate(f, [real + 30, nums], [230, 560], clamp);
+  const pct = (x: number) => `${Math.round(x * 100)}%`;
+  return (
+    <AbsoluteFill>
+      <Bg />
+      <Eyebrow>Real site · not our demo</Eyebrow>
+      <div style={{ position: 'absolute', left: 110, top: 112, width: 1700, opacity: pop(f, 3), fontFamily: F.body, fontWeight: 800, fontSize: 54,
+        color: C.ink, letterSpacing: -1 }}>
+        {LC.url.replace('https://', '')} <span style={{ color: C.muted, fontWeight: 600, fontSize: 34 }}>· Keoset Community Coffee, Northern Laos</span></div>
+      <Pane src="lc-before_bare.jpg" label="Phone with no Lao font · before" color={C.bad} ocr={LC.lines[0].before} at={real} x={110} scroll={scroll} good={false} />
+      <Pane src="lc-after_r3_bare.jpg" label="Same phone · GlyphSweep’s proven patch" color={C.teal} ocr={LC.lines[0].after} at={fix} x={1010} scroll={scroll} good />
+      <div style={{ position: 'absolute', left: 110, top: 815, display: 'flex', gap: 22, fontFamily: F.body, opacity: fade(f, nums - 4) }}>
+        {[
+          { k: 'OCR error', v: `${pct(LC.ocr.cer_before)} → ${pct(LC.ocr.cer_after)}`, at: nums },
+          { k: 'Script readiness', v: `${LC.score.before} → ${LC.score.after}`, at: nums + 40 },
+          { k: 'Sandboxes used + destroyed', v: `${LC.sandboxes}`, at: nums + 55 },
+          { k: 'Off-allowlist requests blocked', v: `${LC.blocked}`, at: nums + 65 },
+        ].map((s) => (
+          <div key={s.k} style={{ opacity: pop(f, s.at), border: `2px solid ${C.line}`, borderRadius: 16, padding: '10px 22px', background: 'rgba(15,13,46,.9)' }}>
+            <div style={{ fontSize: 20, color: C.muted, fontWeight: 700 }}>{s.k}</div>
+            <div style={{ fontSize: 40, color: C.gold, fontWeight: 800 }}>{s.v}</div>
+          </div>
+        ))}
+        <div style={{ alignSelf: 'center', border: `2px solid ${C.bad}`, borderRadius: 12, padding: '6px 16px', fontSize: 22, fontWeight: 700, color: C.bad,
+          opacity: fade(f, boxes) }}>● real sweep {LC.id} · live on Vultr</div>
       </div>
     </AbsoluteFill>
   );
