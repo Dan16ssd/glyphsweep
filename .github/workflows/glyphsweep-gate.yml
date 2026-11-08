@@ -1,0 +1,34 @@
+# Example: GlyphSweep as a release gate. This repo runs it against its own hostile demo shop.
+# In your repo: point `url` at your staging/preview deployment and keep the rest.
+name: GlyphSweep gate
+
+on:
+  workflow_dispatch:
+    inputs:
+      script:
+        description: lao | thai | khmer | myanmar
+        default: thai
+  push:
+    branches: [main]
+    paths: [action.yml, ci/**, .github/workflows/glyphsweep-gate.yml]
+
+jobs:
+  readiness:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Audit the Thai demo shop (expected to FAIL the gate before the fix)
+        id: gs
+        continue-on-error: true
+        uses: ./
+        with:
+          demo: "true"
+          script: ${{ github.event.inputs.script || 'thai' }}
+          min-score: "70"
+      - name: Gate result
+        run: |
+          echo "before=${{ steps.gs.outputs.score-before }} after=${{ steps.gs.outputs.score-after }}"
+          echo "report: ${{ steps.gs.outputs.report-url }}"
+          # The demo shop is broken on purpose: the gate must catch it, and the proven patch must clear it.
+          test "${{ steps.gs.outcome }}" = "failure"
+          test "${{ steps.gs.outputs.score-after }}" -gt "${{ steps.gs.outputs.score-before }}"

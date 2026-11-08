@@ -1,0 +1,61 @@
+name: GlyphSweep script-readiness gate
+description: >
+  Fail the build when your Lao, Thai, Khmer or Burmese pages would break on real phones.
+  Every page is rendered in a disposable gVisor sandbox on Vultr; the score is measured, not guessed.
+branding:
+  icon: shield
+  color: orange
+
+inputs:
+  url:
+    description: Page to audit (your staging or preview URL). Ignored when demo is true.
+    required: false
+    default: ""
+  script:
+    description: lao | thai | khmer | myanmar
+    required: false
+    default: lao
+  min-score:
+    description: Fail if the page's current script-readiness score (0-100) is below this.
+    required: false
+    default: "70"
+  demo:
+    description: Audit GlyphSweep's bundled hostile demo shop instead of `url` (for trying the action).
+    required: false
+    default: "false"
+  api:
+    description: GlyphSweep server.
+    required: false
+    default: https://45-77-254-54.sslip.io
+  timeout-minutes:
+    description: Give up after this long.
+    required: false
+    default: "15"
+
+outputs:
+  score-before:
+    description: Readiness score of the page as it is now.
+    value: ${{ steps.sweep.outputs.before }}
+  score-after:
+    description: Score after GlyphSweep's proven CSS patch (waiting for human approval).
+    value: ${{ steps.sweep.outputs.after }}
+  report-url:
+    description: Live report, including the patch to approve.
+    value: ${{ steps.sweep.outputs.report }}
+  badge-url:
+    description: SVG badge for this sweep.
+    value: ${{ steps.sweep.outputs.badge }}
+
+runs:
+  using: composite
+  steps:
+    - id: sweep
+      shell: bash
+      env:
+        GS_URL: ${{ inputs.url }}
+        GS_SCRIPT: ${{ inputs.script }}
+        GS_MIN: ${{ inputs.min-score }}
+        GS_DEMO: ${{ inputs.demo }}
+        GS_API: ${{ inputs.api }}
+        GS_TIMEOUT: ${{ inputs.timeout-minutes }}
+      run: python3 "$GITHUB_ACTION_PATH/ci/gate.py"
