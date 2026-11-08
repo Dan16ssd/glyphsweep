@@ -327,8 +327,13 @@ def run_job(job):
                         event(job, "verify", "warn", f"Vision re-check skipped: {e}")
 
             job["score"] = {"before": score(before), "after": score(after if after is not None else before)}
+            job["approval"] = {"state": "pending"}
             job["status"] = "done"
             event(job, "report", "done", f"Script readiness {job['score']['before']} → {job['score']['after']}")
+            # Human in the loop: the agent never ships its own work. The proven patch stays locked
+            # until a person reviews the before/after and approves it.
+            event(job, "approve", "warn", "Waiting for human approval: review the before/after and the proven patch. "
+                  "patch.css is only released after a person approves.")
         except Exception as e:  # noqa: BLE001
             job["status"] = "error"
             job["error"] = str(e)
@@ -404,10 +409,39 @@ def get_job(jid: str):
     raise HTTPException(503, "busy, retry")
 
 
+class ApprovalIn(BaseModel):
+    decision: str
+
+
+@app.post("/api/jobs/{jid}/approval")
+def set_approval(jid: str, body: ApprovalIn):
+    if body.decision not in ("approve", "reject"):
+        raise HTTPException(400, "decision must be approve or reject")
+    job = JOBS.get(jid)
+    if not job:
+        raise HTTPException(404, "Only a sweep from this server session can be approved.")
+    with LOCK:
+        if job.get("status") != "done" or (job.get("approval") or {}).get("state") != "pending":
+            raise HTTPException(409, "Nothing is waiting for approval on this sweep.")
+        ok = body.decision == "approve"
+        job["approval"] = {"state": "approved" if ok else "rejected", "at": time.time()}
+    # event() takes LOCK itself, so log outside the block above
+    if ok:
+        event(job, "approve", "done", f"Approved by a human · patch.css released (proven score "
+              f"{job['score']['before']} → {job['score']['after']}, source: {(job.get('patch') or {}).get('source', '?')})")
+    else:
+        event(job, "approve", "error", "Rejected by a human · patch.css stays locked, nothing is released")
+    (DATA / jid / "report.json").write_text(json.dumps(job, ensure_ascii=False, default=str), encoding="utf-8")
+    return get_job(jid)
+
+
 @app.get("/api/jobs/{jid}/patch.css")
 def get_patch(jid: str):
     job = get_job(jid)
     data = json.loads(job.body)
+    # Sweeps from before the approval step have no "approval" field and stay downloadable.
+    if (data.get("approval") or {}).get("state", "approved") != "approved":
+        raise HTTPException(403, "This patch has not been approved by a human yet.")
     css = (data.get("patch") or {}).get("css") or "/* no patch */"
     head = f"/* GlyphSweep patch for {data.get('url')} ({data.get('script')}), proven in a fresh sandbox. */\n"
     return Response(head + css, media_type="text/css",

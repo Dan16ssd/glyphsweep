@@ -48,7 +48,7 @@ The detectors are not specific to Lao. Each script is a code range plus font sen
 ## What the agent does
 
 ```
-plan ──► dispatch ──► verify ──► fix ──► prove ──► report
+plan ──► dispatch ──► verify ──► fix ──► prove ──► human approval ──► release
           sandbox #1   vision     model   sandbox #3
           (+ #2 for    model      writes  re-renders with
           planner-     confirms   CSS     the patch and
@@ -66,7 +66,8 @@ plan ──► dispatch ──► verify ──► fix ──► prove ──►
 4. **Bare-device render.** The same page is rendered again with a fontconfig that has **no system font for the script**, simulating a phone without Lao fonts. **Tesseract OCR** reads both renders back and reports a character error rate against the DOM text. Tofu shows up as a number.
 5. **Verify.** A vision model on Vultr Serverless Inference gets the screenshot with numbered boxes and says which issues a reader can actually see.
 6. **Fix.** The model writes a CSS patch and translates the untranslated strings. The patch goes through a sanitizer that rejects everything except plain CSS and a Google Fonts `@import`. If the patch is rejected, or no model is configured, a deterministic fixer is used instead.
-7. **Prove, then iterate.** A brand-new sandbox re-renders every page with the patch and re-runs all detectors and OCR. Anything still measurably broken goes back to the model with the measured values for a second round, which is proven in another fresh sandbox. Font fixes count only if **bare-device OCR** can actually read the text afterwards. The vision model also re-checks the patched screenshot. Each finding ends as **fixed**, **open**, or **needs a source change** (lang attribute, copy). `patch.css` and `report.json` can be downloaded.
+7. **Prove, then iterate.** A brand-new sandbox re-renders every page with the patch and re-runs all detectors and OCR. Anything still measurably broken goes back to the model with the measured values for a second round, which is proven in another fresh sandbox. Font fixes count only if **bare-device OCR** can actually read the text afterwards. The vision model also re-checks the patched screenshot. Each finding ends as **fixed**, **open**, or **needs a source change** (lang attribute, copy).
+8. **Human approval.** The agent never ships its own work. When the proof is done the job stops at *Waiting for human approval*: a person reviews the before/after screenshots, the bare-device OCR and the patch, then clicks **Approve & release patch** or **Reject**. Until then `patch.css` is locked (`403`); the decision is written into the agent timeline and `report.json` (`POST /api/jobs/{id}/approval`).
 
 ## Containment (Blast Radius Zero)
 

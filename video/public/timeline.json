@@ -1,0 +1,59 @@
+{
+ "total": 162.453,
+ "scenes": [
+  {
+   "id": "01-story",
+   "start": 0.0,
+   "duration": 17.726,
+   "voice": 0.6
+  },
+  {
+   "id": "02-problem",
+   "start": 17.726,
+   "duration": 23.835,
+   "voice": 17.726
+  },
+  {
+   "id": "03-agent",
+   "start": 41.561,
+   "duration": 13.969,
+   "voice": 41.561
+  },
+  {
+   "id": "04-sandbox",
+   "start": 55.53,
+   "duration": 21.147,
+   "voice": 55.53
+  },
+  {
+   "id": "05-demo",
+   "start": 76.677,
+   "duration": 24.966,
+   "voice": 76.677
+  },
+  {
+   "id": "06-findings",
+   "start": 101.643,
+   "duration": 12.839,
+   "voice": 101.643
+  },
+  {
+   "id": "07-proof",
+   "start": 114.482,
+   "duration": 15.879,
+   "voice": 114.482
+  },
+  {
+   "id": "08-trust",
+   "start": 130.361,
+   "duration": 16.657,
+   "voice": 130.361
+  },
+  {
+   "id": "09-close",
+   "start": 147.018,
+   "duration": 15.435,
+   "voice": 147.018
+  }
+ ]
+}

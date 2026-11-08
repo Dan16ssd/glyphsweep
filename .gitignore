@@ -8,3 +8,9 @@ research/results/shots/
 research/*.log
 research/__pycache__/
 research/results/shots_*/
+video/node_modules
+video/out/
+video/rec/
+video/public/vo/
+video/public/narration.wav
+video/public/clip-*.mp4

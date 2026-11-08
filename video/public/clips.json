@@ -1,0 +1,72 @@
+{
+ "05-demo": {
+  "segs": [
+   {
+    "at": 0.0,
+    "dur": 10.486,
+    "speed": 23.55,
+    "label": "agent working: plan → sandbox → verify → fix → prove"
+   },
+   {
+    "at": 10.486,
+    "dur": 14.48,
+    "speed": 1.21,
+    "label": "Containment tab"
+   }
+  ],
+  "facts": {
+   "blocked": "12"
+  }
+ },
+ "06-findings": {
+  "segs": [
+   {
+    "at": 0.0,
+    "dur": 12.839,
+    "speed": 1.13,
+    "label": "Findings tab"
+   }
+  ],
+  "facts": {}
+ },
+ "07-proof": {
+  "segs": [
+   {
+    "at": 0.0,
+    "dur": 9.527,
+    "speed": 1.99,
+    "label": "Bare device + OCR tab"
+   },
+   {
+    "at": 9.527,
+    "dur": 6.352,
+    "speed": 2.13,
+    "label": "Before / after tab"
+   }
+  ],
+  "facts": {
+   "before": "96%",
+   "after": "5%"
+  }
+ },
+ "08-trust": {
+  "segs": [
+   {
+    "at": 0.0,
+    "dur": 5.83,
+    "speed": 1.2,
+    "label": "Timeline + score"
+   },
+   {
+    "at": 5.83,
+    "dur": 10.827,
+    "speed": 0.75,
+    "label": "Fix tab: proven patch"
+   }
+  ],
+  "facts": {
+   "before": "33",
+   "after": "74"
+  }
+ }
+}

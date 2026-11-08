@@ -152,6 +152,16 @@
   .why { color:var(--mute); font-size:12.5px; margin-top:14px; }
   a.dl { font-size:13px; padding:7px 12px; border:1px solid var(--edge2); border-radius:9px; color:var(--gold2); text-decoration:none; background:rgba(242,181,68,.06); }
   a.dl:hover { background:rgba(242,181,68,.14); }
+  .approve { margin-top:12px; padding:14px; border-radius:12px; border:1px solid rgba(242,181,68,.55); background:rgba(242,181,68,.08); animation:pulseA 2.4s ease-in-out infinite; }
+  .approve.rej { border-color:rgba(251,113,133,.5); background:rgba(251,113,133,.07); animation:none; }
+  .approve-h { font-weight:700; color:var(--gold2); font-size:15px; } .approve.rej .approve-h { color:#fb7185; }
+  .approve-t { font-size:13.5px; color:var(--mute); margin-top:4px; line-height:1.5; }
+  .approve button { padding:9px 14px; border-radius:10px; font-weight:700; font-size:14px; cursor:pointer; }
+  .approve button.ok { border:0; color:#2a1a00; background:linear-gradient(135deg,#f6c860,#e2a23a); }
+  .approve button.no { border:1px solid rgba(251,113,133,.5); color:#fda4af; background:transparent; }
+  .approve button:disabled { opacity:.5; cursor:wait; }
+  .approved { font-size:13px; font-weight:700; color:#4fd1b5; }
+  @keyframes pulseA { 0%,100% { box-shadow:0 0 0 0 rgba(242,181,68,0); } 50% { box-shadow:0 0 0 6px rgba(242,181,68,.12); } }
   .probe { font-family:"JetBrains Mono", monospace; font-size:12.5px; }
   h3 { color:var(--ink); }
 
@@ -320,7 +330,7 @@ function render() {
     const ocr = job.ocr_proof && job.ocr_proof.cer_after != null ? `<br>Bare-device OCR error: <b>${pct(job.ocr_proof.cer_before)} → ${pct(job.ocr_proof.cer_after)}</b>` : "";
     const rounds = (job.rounds || []).length ? `<br>${job.rounds.length} fix round(s), each proven in a fresh sandbox` : "";
     $("#scoreNote").innerHTML = `${fixed}/${b.length} issues proven fixed by CSS · ${src} need an HTML/content change${ocr}${rounds}` +
-      (job.status === "done" ? `<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap"><a class="dl" href="/api/jobs/${job.id}/patch.css">⬇ patch.css</a><a class="dl" href="/api/jobs/${job.id}/report.json">⬇ report.json</a></div>` : "");
+      (job.status === "done" ? approvalBox() : "");
   }
   const v = $("#view");
   if (tab === "findings") v.innerHTML = findings();
@@ -328,6 +338,29 @@ function render() {
   if (tab === "device") v.innerHTML = device();
   if (tab === "patch") v.innerHTML = patch();
   if (tab === "contain") v.innerHTML = contain();
+}
+
+// Human in the loop: the proven patch is locked until a person approves it.
+function approvalBox() {
+  const st = (job.approval || {}).state || "approved";
+  const report = `<a class="dl" href="/api/jobs/${job.id}/report.json">⬇ report.json</a>`;
+  if (st === "pending") return `<div class="approve" id="approveBox">
+      <div class="approve-h">⏸ Waiting for your approval</div>
+      <div class="approve-t">The agent proved this patch in a fresh sandbox but will not release it on its own. Check <b>Before / after</b> and <b>Fix</b>, then decide.</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+        <button class="ok" type="button" onclick="decide('approve')">✓ Approve &amp; release patch</button>
+        <button class="no" type="button" onclick="decide('reject')">✕ Reject</button></div></div>`;
+  if (st === "rejected") return `<div class="approve rej"><div class="approve-h">✕ Rejected by a human</div><div class="approve-t">patch.css stays locked.</div><div style="margin-top:8px">${report}</div></div>`;
+  return `<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">${job.approval ? '<span class="approved">✓ Approved by a human</span>' : ""}<a class="dl" href="/api/jobs/${job.id}/patch.css">⬇ patch.css</a>${report}</div>`;
+}
+
+async function decide(d) {
+  document.querySelectorAll("#approveBox button").forEach(b => b.disabled = true);
+  try {
+    const r = await fetch(`/api/jobs/${job.id}/approval`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ decision: d }) });
+    if (r.ok) { job = await r.json(); render(); }
+    else { let m = "Approval failed"; try { m = (await r.json()).detail || m; } catch (e) {} alertBox(m); render(); }
+  } catch (e) { alertBox("Network error: " + e.message); render(); }
 }
 
 function findings() {
