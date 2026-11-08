@@ -136,28 +136,101 @@ Every sweep also has a live badge: `https://45-77-254-54.sslip.io/api/jobs/<id>/
 
 ## Architecture
 
-```
- browser ──HTTP──► Vultr VM
-                   ┌──────────────────────────────────────────────────────────┐
-                   │ control (FastAPI + UI)  ── HTTPS ──► Vultr Serverless     │
-                   │   holds API key + docker.sock         Inference           │
-                   │        │ starts / destroys per stage                      │
-                   │        ▼                                                  │
-                   │  [gs-internal: internal, no route out]                    │
-                   │   sandbox (runsc, ro rootfs, no secrets)                  │
-                   │     Chromium + detectors + Tesseract                      │
-                   │        │ only exit                                        │
-                   │        ▼                                                  │
-                   │   egress proxy (per job) ── allowlist ──► target site     │
-                   │   [gs-egress]                         └─► Google Fonts    │
-                   └──────────────────────────────────────────────────────────┘
+### System
+
+```mermaid
+flowchart LR
+    U["Browser / judge"] -->|HTTPS| CADDY
+    GH["GitHub Action<br/>ci/gate.py"] -->|HTTPS API| CADDY
+
+    subgraph VM["Vultr Cloud Compute VM (Singapore) · Docker + gVisor"]
+        CADDY["Caddy<br/>TLS, only ingress"] --> CP
+        subgraph TRUSTED["Trusted zone"]
+            CP["Control plane · FastAPI<br/>pipeline, scoring, approval gate,<br/>red team · holds API key + docker.sock"]
+            DATA[("/data<br/>reports, screenshots")]
+            CP --- DATA
+        end
+        subgraph INTERNAL["gs-internal network · internal: true · no route out"]
+            SBX["Sandbox per stage · runsc<br/>Chromium + detectors + Tesseract<br/>read-only, uid 1000, cap_drop ALL,<br/>1.5 GB · 512 PIDs · 240 s · 0 secrets"]
+        end
+        PROXY["Egress proxy per job<br/>allowlist, denies metadata /<br/>private IPs, logs every request"]
+        DEMO["Hostile demo shop<br/>own read-only container"]
+    end
+
+    CP -->|"create · wait · destroy · verify gone"| SBX
+    SBX -->|only exit| PROXY
+    PROXY -->|allowlisted| SITE["Target website"]
+    PROXY -->|allowlisted| FONTS["Google Fonts / CDNs"]
+    PROXY -->|"demo only: GET /demo/*"| DEMO
+    PROXY -. "deny log = evidence" .-> CP
+    SBX -. "result JSON (stdout)" .-> CP
+    CP -->|"HTTPS · plan / vision verify / fix"| LLM["Vultr Serverless Inference<br/>qwen3.8-27b"]
+
+    classDef trust fill:#1e2a3a,stroke:#6CB4FF,color:#fff
+    classDef box fill:#2a1e14,stroke:#F2B544,color:#fff
+    classDef bad fill:#3a1e24,stroke:#FF5C6C,color:#fff
+    class CP,DATA,CADDY trust
+    class SBX,PROXY box
+    class DEMO,SITE bad
 ```
 
+### One sweep, step by step
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User
+    participant CP as Control plane
+    participant SB as Fresh sandbox (runsc)
+    participant PX as Egress proxy
+    participant AI as Vultr Serverless Inference
+    User->>CP: POST /api/jobs {url, script}
+    CP->>CP: validate URL, build per-job allowlist
+    CP->>SB: #1 render start page (bare-phone profile too)
+    SB->>PX: page + fonts only
+    PX-->>CP: allow/deny log
+    SB-->>CP: findings, screenshots, OCR (CER)
+    CP->>CP: destroy sandbox + verify gone
+    CP->>AI: plan more pages (links the sandbox saw)
+    CP->>SB: #2 audit planner-chosen pages
+    CP->>AI: vision verify (annotated screenshot)
+    CP->>AI: write CSS patch + translations
+    CP->>CP: sanitize CSS (plain CSS + Google Fonts only)
+    loop candidates: model, deterministic, combined
+        CP->>SB: #3+ re-render with patch in a NEW sandbox
+        SB-->>CP: re-measured findings + OCR
+    end
+    CP->>CP: keep best measured patch, score = 100·e^(−Σw/40)
+    CP-->>User: report · patch.css LOCKED (403)
+    User->>CP: POST /approval {approve}
+    CP-->>User: patch.css released, decision logged
 ```
-control/   app.py (pipeline + API), sandbox.py (docker orchestration), llm.py (planner/verifier/fixer/sanitizer),
-           static/index.html (UI), demo/ (hostile Lao test shop, served by its own read-only container)
-sandbox/   Dockerfile (Playwright + Noto + Tesseract lao/tha/khm/mya), runner.py, checks.js, bare-fonts.conf
-proxy/     proxy.py (per-job allowlisting CONNECT/HTTP proxy)
+
+### Red team flow (`POST /api/redteam`)
+
+```mermaid
+flowchart LR
+    RT["Red-team run"] --> S1["#1 hostile pages<br/>metadata, exfil, pivot,<br/>file://, WebRTC, injection"]
+    RT --> S2["#2 crash page<br/>memory + infinite loop"]
+    RT --> S3["#3 code execution<br/>proxy bypass, root, mount,<br/>fork bomb, disk fill"]
+    RT --> S4["#4 memory bomb 4 GB"]
+    RT --> S5["#5 never exit"]
+    S1 & S2 & S3 & S4 & S5 --> V{"Verdict from outside:<br/>proxy log + Docker state"}
+    V --> R["43/43 contained<br/>all sandboxes destroyed"]
+```
+
+### Repository layout
+
+```
+control/   app.py (pipeline, API, approval gate, badges), redteam.py (self-attack suite), sandbox.py (docker
+           orchestration), llm.py (planner / verifier / fixer / CSS sanitizer), static/index.html (UI),
+           demo/ (hostile test shop in 4 scripts + demo/redteam/ attack pages; own read-only container)
+sandbox/   Dockerfile (Playwright + Noto + Tesseract lao/tha/khm/mya), runner.py (audit + red-team modes),
+           checks.js (detectors), bare-fonts.conf (no-script-font phone profile)
+proxy/     proxy.py (per-job allowlisting CONNECT/HTTP proxy, JSON decision log)
+ci/        gate.py (release gate used by action.yml)          action.yml   GitHub Action
+research/  144-site measurement study (scan, data, RESULTS.md)
+video/     Remotion source of both demo videos
 deploy/    setup_vultr.sh
 ```
 
