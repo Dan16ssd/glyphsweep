@@ -537,7 +537,8 @@ def job_badge(jid: str):
     if data.get("status") != "done" or "after" not in sc:
         return _badge(f"{lang} readiness", data.get("status", "?"), "#6B6890")
     after = sc["after"]
-    color = "#2F9E7E" if after >= 70 else "#C9922A" if after >= 40 else "#D9455F"
+    now = sc.get("before") or 0  # colour = the page as it is today, not as it could be
+    color = "#2F9E7E" if now >= 70 else "#C9922A" if now >= 40 else "#D9455F"
     return _badge(f"{lang} readiness", f"{sc.get('before')} → {after} (GlyphSweep)", color)
 
 
