@@ -60,6 +60,8 @@ def run(job, event, injection_findings, demo_host):
     for pg in res.get("pages", []):
         for a in pg.get("attempts", []):
             target = a["what"]
+            if "verdict from runner" in a["outcome"]:
+                continue  # judged below from the runner's own record (downloads, popups)
             host_hits = [d for d in denied if d.get("host") and d["host"] in target]
             evidence = a["outcome"]
             if host_hits:
@@ -137,6 +139,10 @@ def run(job, event, injection_findings, demo_host):
         row("code-exec", pr["probe"], r, ok, 3)
     if not res.get("probes"):
         row("code-exec", "code execution probes", f"no result (exit {ev.get('exit_code')})", False, 3)
+    elif res.get("partial"):
+        row("code-exec", "the last probe pushed the sandbox past its caps",
+            f"sandbox killed (exit {ev.get('exit_code')}, oom_killed={ev.get('oom_killed')}) and destroyed={ev.get('destroyed')}",
+            ev.get("destroyed"), 3)
 
     # ---- 4. memory bomb
     res, ev = stage(4, "oom", "allocate 4 GB against a 1.5 GB cap", extra={"redteam": "oom"}, timeout=90)

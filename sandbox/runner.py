@@ -201,8 +201,8 @@ def rt_pages(p, spec):
         rec = {"url": url, "attempts": [], "error": None}
         try:
             page.goto(url, wait_until="domcontentloaded", timeout=15000)
-            page.wait_for_function("window.__rt && window.__rt.done", timeout=20000)
-            rec["attempts"] = page.evaluate("window.__rt.attempts")
+            page.wait_for_function("!window.__rt || window.__rt.done", timeout=20000)
+            rec["attempts"] = page.evaluate("window.__rt ? window.__rt.attempts : []")
         except Exception as e:  # noqa: BLE001
             rec["error"] = str(e)[:200]
             try:
@@ -303,22 +303,20 @@ def rt_rce():
     def fork_bomb():
         kids = []
         try:
-            for _ in range(2000):
-                pid = os.fork()
-                if pid == 0:
-                    time.sleep(30)
-                    os._exit(0)
-                kids.append(pid)
+            for _ in range(2000):  # tiny processes, so the PID limit (not memory) is what stops it
+                kids.append(subprocess.Popen(["sleep", "30"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL))
             return f"spawned {len(kids)} processes (!)"
         except Exception as e:  # noqa: BLE001
             return f"blocked after {len(kids)} processes: {type(e).__name__}"
         finally:
             for k in kids:
                 try:
-                    os.kill(k, signal.SIGKILL)
-                    os.waitpid(k, 0)
+                    k.kill()
+                    k.wait()
                 except Exception:  # noqa: BLE001
                     pass
+    # Report what we have so far: if a later probe gets the whole sandbox killed, the evidence survives.
+    print(RESULT_MARK + json.dumps({"mode": "rce", "probes": res, "partial": True}, ensure_ascii=False), flush=True)
     add("fork bomb (2000 processes)", fork_bomb)
 
     def disk_fill():
@@ -338,6 +336,7 @@ def rt_rce():
                 os.remove("/tmp/fill.bin")
             except Exception:  # noqa: BLE001
                 pass
+    print(RESULT_MARK + json.dumps({"mode": "rce", "probes": res, "partial": True}, ensure_ascii=False), flush=True)
     add("fill the disk (3.2 GB into /tmp)", disk_fill)
     return res
 
