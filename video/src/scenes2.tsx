@@ -1,6 +1,7 @@
 import React from 'react';
 import { AbsoluteFill, Img, interpolate, staticFile, useCurrentFrame } from 'remotion';
 import { C, F, cue, fade, pop } from './theme';
+import rtJson from '../public/redteam.json';
 
 const clamp = { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' } as const;
 
@@ -191,7 +192,7 @@ export const Business = () => {
       <div style={{ position: 'absolute', left: 110, top: 560, display: 'flex', alignItems: 'center', gap: 18, opacity: fade(f, gate - 4), fontFamily: F.body }}>
         {[
           { t: 'git push', s: 'new release', c: C.muted },
-          { t: 'GlyphSweep gate', s: 'audit · fix · prove · approve', c: C.gold },
+          { t: 'GlyphSweep GitHub Action', s: 'fails the build if it breaks', c: C.gold },
           { t: 'deploy', s: 'only if it reads right', c: C.teal },
         ].map((s, i) => (
           <React.Fragment key={s.t}>
@@ -239,6 +240,76 @@ export const Business = () => {
         <div style={{ marginTop: 18, textAlign: 'center', fontFamily: F.body, fontSize: 28, fontWeight: 800, color: C.bad, opacity: fade(f, broken + 30) }}>
           = lost sales + support calls
         </div>
+      </div>
+    </AbsoluteFill>
+  );
+};
+
+// ---------------------------------------------------------------- red team (data from a real run: public/redteam.json)
+const RT = rtJson as { id: string; contained: number; total: number; runtime: string; seconds: number; sandboxes: number };
+const RT_ROWS: { tier: string; a: string; r: string; re: RegExp; fb: number }[] = [
+  { tier: 'page', a: 'steal cloud metadata 169.254.169.254', r: 'denied by the egress proxy', re: /credentials/, fb: 6 },
+  { tier: 'page', a: 'cookie exfil: fetch · beacon · WebSocket · POST', r: '0 bytes left the sandbox', re: /cookies/, fb: 7 },
+  { tier: 'page', a: 'pivot to the control plane / Docker API', r: 'denied by the egress proxy', re: /control/, fb: 8 },
+  { tier: 'page', a: 'WebRTC UDP leak · file:///etc/passwd', r: 'no route · unreadable', re: /control/, fb: 8.6 },
+  { tier: 'agent', a: 'prompt injection + bait links for the planner', r: 'flagged · bait ignored', re: /control/, fb: 9.2 },
+  { tier: 'code', a: 'escape the proxy: TCP · UDP DNS · raw socket', r: 'network unreachable', re: /escape/, fb: 13 },
+  { tier: 'code', a: 'become root · mount · docker.sock', r: 'EPERM · not present', re: /root/, fb: 14 },
+  { tier: 'code', a: 'attack the kernel', r: 'gVisor answers, not the host', re: /root/, fb: 14.6 },
+  { tier: 'code', a: 'fork bomb (2000 processes)', r: 'stopped at 242', re: /fork/, fb: 15.5 },
+  { tier: 'code', a: 'memory bomb (4 GB)', r: 'OOM-killed at 1.5 GB', re: /memory/, fb: 16.5 },
+  { tier: 'code', a: 'never exit', r: 'killed at 20 s, destroyed', re: /memory/, fb: 17.1 },
+];
+
+export const RedTeam = () => {
+  const f = useCurrentFrame();
+  const id = '086-redteam';
+  const five = cue(id, /five/, 3);
+  const verdict = cue(id, /Forty-three/, 19);
+  const n = Math.round(interpolate(f, [verdict, verdict + 30], [0, RT.contained], clamp));
+  return (
+    <AbsoluteFill>
+      <Bg />
+      <Eyebrow>Red team · we attack our own sandbox</Eyebrow>
+      <div style={{ position: 'absolute', left: 110, top: 116, width: 1100, opacity: pop(f, 3), fontFamily: F.body, fontWeight: 800, fontSize: 58,
+        color: C.ink, lineHeight: 1.08, letterSpacing: -1 }}>Don’t trust the sandbox. Attack it.</div>
+      {/* five sandboxes */}
+      <div style={{ position: 'absolute', left: 110, top: 220, display: 'flex', gap: 14, fontFamily: F.body }}>
+        {['#1 hostile pages', '#2 crash page', '#3 code exec', '#4 memory bomb', '#5 hang'].map((t, i) => {
+          const p = pop(f, five + i * 5);
+          const dead = f > verdict - 10;
+          return (
+            <div key={t} style={{ opacity: p, transform: `translateY(${(1 - p) * 16}px)`, border: `2px solid ${dead ? C.line : C.gold}`, borderRadius: 12,
+              padding: '8px 16px', fontSize: 22, fontWeight: 700, color: dead ? C.muted : C.gold, background: 'rgba(15,13,46,.85)' }}>
+              {t}{dead ? ' · destroyed' : ''}</div>
+          );
+        })}
+      </div>
+      {/* attack rows */}
+      <div style={{ position: 'absolute', left: 110, top: 300, width: 1180, fontFamily: F.body }}>
+        {RT_ROWS.map((r) => {
+          const p = pop(f, cue(id, r.re, r.fb) + (r.fb % 1) * 18);
+          const tc = r.tier === 'code' ? C.bad : r.tier === 'agent' ? '#A78BFA' : C.gold;
+          return (
+            <div key={r.a} style={{ opacity: p, transform: `translateX(${(1 - p) * -30}px)`, display: 'grid', gridTemplateColumns: '92px 1fr 380px',
+              alignItems: 'center', gap: 16, padding: '8px 0', borderTop: `1px solid ${C.line}` }}>
+              <span style={{ fontSize: 17, fontWeight: 800, letterSpacing: 2, textTransform: 'uppercase', color: tc, border: `1.5px solid ${tc}`, borderRadius: 7,
+                padding: '2px 8px', textAlign: 'center' }}>{r.tier}</span>
+              <span style={{ fontSize: 26, color: C.ink, fontWeight: 600 }}>{r.a}</span>
+              <span style={{ fontSize: 23, color: C.teal, fontWeight: 700 }}>✓ {r.r}</span>
+            </div>
+          );
+        })}
+      </div>
+      {/* verdict */}
+      <div style={{ position: 'absolute', left: 1340, top: 330, width: 480, textAlign: 'center', fontFamily: F.body, opacity: fade(f, verdict - 6) }}>
+        <div style={{ fontSize: 160, fontWeight: 800, color: C.teal, lineHeight: 1, letterSpacing: -6 }}>{n}/{RT.total}</div>
+        <div style={{ fontSize: 34, fontWeight: 800, color: C.ink, marginTop: 10 }}>attacks contained</div>
+        <div style={{ fontSize: 24, color: C.muted, marginTop: 18, lineHeight: 1.4 }}>
+          {RT.sandboxes} sandboxes on {RT.runtime} · {RT.seconds} s<br />verdicts from the proxy log + Docker
+        </div>
+        <div style={{ marginTop: 22, display: 'inline-block', border: `2px solid ${C.bad}`, borderRadius: 12, padding: '6px 16px', fontSize: 22, fontWeight: 700,
+          color: C.bad }}>● real run {RT.id}</div>
       </div>
     </AbsoluteFill>
   );

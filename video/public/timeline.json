@@ -1,5 +1,5 @@
 {
- "total": 213.084,
+ "total": 240.808,
  "scenes": [
   {
    "id": "01-story",
@@ -62,16 +62,22 @@
    "voice": 157.764
   },
   {
-   "id": "087-business",
+   "id": "086-redteam",
    "start": 167.008,
-   "duration": 31.972,
+   "duration": 25.444,
    "voice": 167.008
   },
   {
+   "id": "087-business",
+   "start": 192.452,
+   "duration": 34.252,
+   "voice": 192.452
+  },
+  {
    "id": "09-close",
-   "start": 198.98,
+   "start": 226.704,
    "duration": 14.104,
-   "voice": 198.98
+   "voice": 226.704
   }
  ]
 }

@@ -97,7 +97,7 @@ The bundled **hostile demo shop** (`control/demo/shop.html`, a Lao coffee store)
 
 One click (or `POST /api/redteam`) starts **five fresh gVisor sandboxes that attack themselves**. Verdicts are taken from **outside** the sandbox wherever possible: the egress proxy's log (did any byte reach a host that isn't on the allowlist?) and Docker (OOM-killed? timed out? destroyed?). The attack pages are in [`control/demo/redteam/`](control/demo/redteam).
 
-**Latest run: 43/43 attacks contained, 5 sandboxes + 5 proxies created and destroyed, 49 s, runtime `runsc`.**
+**Latest run: 43/43 attacks contained, 5 sandboxes + 5 proxies created and destroyed, 45 s, runtime `runsc`.**
 
 | Tier | Attacks | Result |
 |---|---|---|

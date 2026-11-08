@@ -40,8 +40,12 @@
   "text": "And the agent never ships on its own. The proven patch stays locked until a human reviews the before and after, and clicks approve. Only then is it released."
  },
  {
+  "id": "086-redteam",
+  "text": "Don't take our word for the sandbox. One click starts five fresh sandboxes that attack themselves. Hostile pages try to steal cloud credentials, leak cookies and reach the control plane. Then we assume the attacker already runs code inside: escape the proxy, become root, fork bomb, memory bomb. Forty-three attacks, forty-three contained, judged from the proxy log and Docker, not the sandbox's own word."
+ },
+ {
   "id": "087-business",
-  "text": "So who pays for this? Banks, telcos and online shops in Southeast Asia, where most customers use budget Android phones. One broken checkout button means lost sales and support calls. GlyphSweep runs as a release gate in their deploy pipeline, sold per site, per month. Localization agencies use it as proof for every delivery, and government portals for accessibility. And each script is just a Unicode range and two fonts, so the same agent extends to Hindi, Arabic, Tibetan and Sinhala, hundreds of millions more readers."
+  "text": "So who pays for this? Banks, telcos and online shops in Southeast Asia, where most customers use budget Android phones. One broken checkout button means lost sales and support calls. GlyphSweep ships as a GitHub Action: a release gate that fails the build when a page breaks, sold per site, per month. Localization agencies use it as proof for every delivery, and government portals for accessibility. And each script is just a Unicode range and two fonts, so the same agent extends to Hindi, Arabic, Tibetan and Sinhala, hundreds of millions more readers."
  },
  {
   "id": "09-close",
