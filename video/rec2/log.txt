@@ -1,0 +1,4 @@
+job d1d9a7c2f804
+status done {'state': 'pending'}
+ok
+exit 0

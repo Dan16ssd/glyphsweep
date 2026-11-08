@@ -12,6 +12,7 @@ from pathlib import Path
 HERE = Path(__file__).parent
 PUB = HERE / "public"
 rec, marks_path = sys.argv[1], sys.argv[2]
+rec_approve = sys.argv[3] if len(sys.argv) > 3 else None  # short recording of the approval click
 M = json.load(open(marks_path, encoding="utf-8"))["marks"]
 TL = {s["id"]: s for s in json.load(open(PUB / "timeline.json"))["scenes"]}
 FACTS = json.load(open(HERE / "facts.json", encoding="utf-8")) if (HERE / "facts.json").exists() else {}
@@ -37,6 +38,13 @@ PLAN = {
                  (VT["patch"], VT["end"], 0.65, "Fix tab: proven patch")],
 }
 
+SRC = {sid: rec for sid in PLAN}
+if rec_approve:
+    r = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", rec_approve],
+                       capture_output=True, text=True, check=True)
+    PLAN["085-approve"] = [(0.7, 0.7 + TL["085-approve"]["duration"], 1.0, "Human approval")]  # real time: the click lands on "clicks approve"
+    SRC["085-approve"] = rec_approve
+
 out = {}
 for sid, segs in PLAN.items():
     D = TL[sid]["duration"]
@@ -55,7 +63,7 @@ for sid, segs in PLAN.items():
         at += target
     fc = ";".join(parts) + ";" + "".join(f"[v{i}]" for i in range(len(segs))) + f"concat=n={len(segs)}:v=1:a=0[out]"
     dst = PUB / f"clip-{sid}.mp4"
-    subprocess.run(["ffmpeg", "-y", "-v", "error", "-i", rec, "-filter_complex", fc, "-map", "[out]", "-c:v", "libx264",
+    subprocess.run(["ffmpeg", "-y", "-v", "error", "-i", SRC[sid], "-filter_complex", fc, "-map", "[out]", "-c:v", "libx264",
                     "-crf", "18", "-preset", "medium", "-pix_fmt", "yuv420p", "-an", str(dst)], check=True)
     out[sid] = {"segs": meta, "facts": FACTS.get(sid, {})}
     print(sid, [(s["label"][:20], s["speed"]) for s in meta])

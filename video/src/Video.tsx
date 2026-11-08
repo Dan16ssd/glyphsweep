@@ -2,11 +2,11 @@ import React from 'react';
 import { AbsoluteFill, Audio, Sequence, interpolate, staticFile, useCurrentFrame, useVideoConfig } from 'remotion';
 import { C, FPS, timeline } from './theme';
 import { Captions } from './Captions';
-import { Story, Problem, Agent, Sandbox, Demo, Findings, Proof, Trust, Close } from './scenes';
+import { Story, Problem, Agent, Sandbox, Demo, Findings, Proof, Trust, Approve, Close } from './scenes';
 
 const SCENES: Record<string, React.FC> = {
   '01-story': Story, '02-problem': Problem, '03-agent': Agent, '04-sandbox': Sandbox,
-  '05-demo': Demo, '06-findings': Findings, '07-proof': Proof, '08-trust': Trust, '09-close': Close,
+  '05-demo': Demo, '06-findings': Findings, '07-proof': Proof, '08-trust': Trust, '085-approve': Approve, '09-close': Close,
 };
 
 const Fade: React.FC<{ children: React.ReactNode }> = ({ children }) => {

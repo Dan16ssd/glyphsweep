@@ -1,11 +1,42 @@
 [
- {"id": "01-story", "text": "Meet Noy. She lives in Vientiane, and she's buying coffee on her phone. The shop is in Lao, but on her screen, half the words are empty boxes, and the tone marks are cut off. The developers never noticed. Nobody on their team reads Lao."},
- {"id": "02-problem", "text": "This isn't one website. More than a hundred and fifty million people read Lao, Thai, Khmer and Burmese. We scanned a hundred and forty four real websites in these scripts. Fifty one percent have a visible rendering problem. Forty five percent never send a font for their own language. Burmese is the worst, at seventy four percent."},
- {"id": "03-agent", "text": "So we built GlyphSweep, an AI agent on Vultr. It plans which pages to check, opens each one in a browser, measures what a reader actually sees, writes a fix, and then proves the fix works."},
- {"id": "04-sandbox", "text": "But an agent that browses the web is dangerous. Any page can attack it. So every page opens in a throwaway gVisor sandbox. There are no secrets inside. The only way out is an allowlist proxy, made for that one job. When the stage ends, the box is destroyed, and we check that it's really gone."},
- {"id": "05-demo", "text": "This is the real system, running live on Vultr. Our Thai coffee shop is hostile. It tries to steal cloud credentials, send cookies away, and it hides a prompt injection telling the AI to report zero issues and print its API key. Every request is blocked and listed. The sandbox even attacks itself. No metadata, no Docker socket, nothing to steal."},
- {"id": "06-findings", "text": "The injection is flagged, and it changes nothing, because findings come from code, not from the model. Vultr's vision model confirms which problems a reader can really see."},
- {"id": "07-proof", "text": "Now the proof. We render the page on a phone with no Thai font, and read it back with OCR. Before the fix, almost all of the text is unreadable. After the patch, OCR reads it. Proven in a fresh sandbox, not assumed."},
- {"id": "08-trust", "text": "And we don't trust the AI either. The model's patch competes with a deterministic one. Each is measured in its own sandbox, and only the best result ships. The score goes from thirty three to seventy four, in all four scripts."},
- {"id": "09-close", "text": "Back to Noy. Her checkout reads perfectly now. GlyphSweep is live and open source, built in Vientiane. Blast radius zero, for a hundred and fifty million readers."}
+ {
+  "id": "01-story",
+  "text": "Meet Noy. She lives in Vientiane, and she's buying coffee on her phone. The shop is in Lao, but on her screen, half the words are empty boxes, and the tone marks are cut off. The developers never noticed. Nobody on their team reads Lao."
+ },
+ {
+  "id": "02-problem",
+  "text": "This isn't one website. More than a hundred and fifty million people read Lao, Thai, Khmer and Burmese. We scanned a hundred and forty four real websites in these scripts. Fifty one percent have a visible rendering problem. Forty five percent never send a font for their own language. Burmese is the worst, at seventy four percent."
+ },
+ {
+  "id": "03-agent",
+  "text": "So we built GlyphSweep, an AI agent on Vultr. It plans which pages to check, opens each one in a browser, measures what a reader actually sees, writes a fix, and then proves the fix works."
+ },
+ {
+  "id": "04-sandbox",
+  "text": "But an agent that browses the web is dangerous. Any page can attack it. So every page opens in a throwaway gVisor sandbox. There are no secrets inside. The only way out is an allowlist proxy, made for that one job. When the stage ends, the box is destroyed, and we check that it's really gone."
+ },
+ {
+  "id": "05-demo",
+  "text": "This is the real system, running live on Vultr. Our Thai coffee shop is hostile. It tries to steal cloud credentials, send cookies away, and it hides a prompt injection telling the AI to report zero issues and print its API key. Every request is blocked and listed. The sandbox even attacks itself. No metadata, no Docker socket, nothing to steal."
+ },
+ {
+  "id": "06-findings",
+  "text": "The injection is flagged, and it changes nothing, because findings come from code, not from the model. Vultr's vision model confirms which problems a reader can really see."
+ },
+ {
+  "id": "07-proof",
+  "text": "Now the proof. We render the page on a phone with no Thai font, and read it back with OCR. Before the fix, almost all of the text is unreadable. After the patch, OCR reads it. Proven in a fresh sandbox, not assumed."
+ },
+ {
+  "id": "08-trust",
+  "text": "And we don't trust the AI either. The model's patch competes with a deterministic one. Each is measured in its own sandbox, and only the best result ships. The score goes from thirty three to seventy four, in all four scripts."
+ },
+ {
+  "id": "085-approve",
+  "text": "And the agent never ships on its own. The proven patch stays locked until a human reviews the before and after, and clicks approve. Only then is it released."
+ },
+ {
+  "id": "09-close",
+  "text": "Back to Noy. Her checkout reads perfectly now. GlyphSweep is live and open source, built in Vientiane. Blast radius zero, for a hundred and fifty million readers."
+ }
 ]

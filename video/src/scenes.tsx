@@ -488,6 +488,22 @@ export const Trust = () => {
   );
 };
 
+export const Approve = () => {
+  const id = '085-approve';
+  return (
+    <AbsoluteFill>
+      <Backdrop />
+      <Browser id={id} />
+      <Side eyebrow="Human in the loop" items={[
+        { at: cue(id, /ships/, 1), text: <>⏸ Waiting for<br />human approval</>, color: C.gold },
+        { at: cue(id, /locked/, 3), text: <>patch.css locked<br /><span style={{ color: C.muted }}>HTTP 403 until approved</span></>, color: C.muted },
+        { at: cue(id, /approve/, 6), text: <><span style={{ color: C.teal }}>✓ Approved by a human</span><br />patch.css unlocked</>, color: C.teal },
+        { at: cue(id, /released/, 9), text: <>Only then: patch released</>, color: C.gold },
+      ]} />
+    </AbsoluteFill>
+  );
+};
+
 // ---------- 09 close ----------
 export const Close = () => {
   const f = useCurrentFrame();

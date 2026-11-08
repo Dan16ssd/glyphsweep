@@ -1,5 +1,5 @@
 {
- "total": 162.453,
+ "total": 174.236,
  "scenes": [
   {
    "id": "01-story",
@@ -50,10 +50,16 @@
    "voice": 130.361
   },
   {
-   "id": "09-close",
+   "id": "085-approve",
    "start": 147.018,
-   "duration": 15.435,
+   "duration": 11.783,
    "voice": 147.018
+  },
+  {
+   "id": "09-close",
+   "start": 158.801,
+   "duration": 15.435,
+   "voice": 158.801
   }
  ]
 }

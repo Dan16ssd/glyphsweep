@@ -46,14 +46,34 @@ for s in scenes:
     print(f"  {s['id']:12s} {s['start']:6.1f} +{s['duration']:5.1f}")
 
 model = WhisperModel("small.en", device="cpu", compute_type="int8")
-segs, _ = model.transcribe(str(PUB / "narration.wav"), word_timestamps=True, language="en",
-                           initial_prompt="GlyphSweep, Vultr, gVisor, Vientiane, Noy, OCR, Lao, Khmer, Burmese, API, allowlist")
 caps = []
-for s in segs:
-    for w in s.words:
-        caps.append({"text": w.word, "startMs": round(w.start * 1000), "endMs": round(w.end * 1000),
-                     "timestampMs": round(w.start * 1000), "confidence": w.probability})
-FIX = {"Noi": "Noy", "VNCAINE": "Vientiane", "Lao Thai": "Lao, Thai", "docker": "Docker", "throwaway,": "throwaway"}
+# Transcribe each section on its own (whole-track transcription hallucinates over long silences)
+# and shift by where that section's voice starts in the mix.
+for sc in scenes:
+    segs, _ = model.transcribe(str(PUB / "vo" / f"{sc['id']}.wav"), word_timestamps=True, language="en",
+                               initial_prompt="GlyphSweep, Vultr, gVisor, Vientiane, Noy, OCR, Lao, Khmer, Burmese, API, allowlist",
+                               vad_filter=False, condition_on_previous_text=False)
+    off = sc["voice"] * 1000
+    first = len(caps)
+    for s_ in segs:
+        for w in s_.words:
+            caps.append({"text": w.word, "startMs": round(off + w.start * 1000), "endMs": round(off + w.end * 1000),
+                         "timestampMs": round(off + w.start * 1000), "confidence": w.probability})
+    if len(caps) > first:  # each section is a sentence boundary
+        t = caps[first]["text"]
+        caps[first]["text"] = t[: len(t) - len(t.lstrip())] + t.lstrip()[:1].upper() + t.lstrip()[1:]
+        if caps[-1]["text"].rstrip()[-1:] not in ".?!":
+            caps[-1]["text"] = caps[-1]["text"].rstrip(" ,") + "."
+# join "Glyph" + "sweep"
+merged = []
+for w in caps:
+    if merged and merged[-1]["text"].strip() == "Glyph" and w["text"].strip().lower().startswith("sweep"):
+        merged[-1]["text"] = merged[-1]["text"] + w["text"].strip().replace("sweep", "Sweep")
+        merged[-1]["endMs"] = w["endMs"]
+    else:
+        merged.append(w)
+caps = merged
+FIX = {"Noi": "Noy", "VNCAINE": "Vientiane", "VNCAne": "Vientiane", "VNCaine": "Vientiane", "Lao Thai": "Lao, Thai", "docker": "Docker", "throwaway,": "throwaway"}
 for w in caps:
     for a, b in FIX.items():
         w["text"] = w["text"].replace(a, b)
