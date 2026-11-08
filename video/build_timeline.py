@@ -17,7 +17,11 @@ OUT.mkdir(exist_ok=True)
 GAP = 0.7          # silence after each section
 LEAD = 0.6         # silence before the first word
 TAIL = 4.0         # end card hold
-ITEMS = json.load(open(HERE / "narration.json", encoding="utf-8"))
+import os
+V = os.environ.get("GS_VARIANT", "")
+SUF = f"_{V}" if V else ""
+VO = "vo-" + V if V else "vo"
+ITEMS = json.load(open(HERE / f"narration{SUF}.json", encoding="utf-8"))
 
 
 def dur(p):
@@ -28,7 +32,7 @@ def dur(p):
 
 scenes, t, inputs, filt = [], 0.0, [], []
 for i, it in enumerate(ITEMS):
-    wav = PUB / "vo" / f"{it['id']}.wav"
+    wav = PUB / VO / f"{it['id']}.wav"
     d = dur(wav)
     lead = LEAD if i == 0 else 0
     tail = TAIL if i == len(ITEMS) - 1 else GAP
@@ -39,8 +43,8 @@ for i, it in enumerate(ITEMS):
 total = round(t, 3)
 filt.append("".join(f"[a{i}]" for i in range(len(ITEMS))) + f"amix=inputs={len(ITEMS)}:normalize=0,apad,atrim=0:{total},loudnorm=I=-16:TP=-1.5[out]")
 subprocess.run(["ffmpeg", "-y", "-v", "error", *inputs, "-filter_complex", ";".join(filt), "-map", "[out]", "-ar", "44100",
-                str(PUB / "narration.wav")], check=True)
-json.dump({"total": total, "scenes": scenes}, open(PUB / "timeline.json", "w"), indent=1)
+                str(PUB / f"narration{SUF}.wav")], check=True)
+json.dump({"total": total, "scenes": scenes}, open(PUB / f"timeline{SUF}.json", "w"), indent=1)
 print(f"total {total:.1f}s")
 for s in scenes:
     print(f"  {s['id']:12s} {s['start']:6.1f} +{s['duration']:5.1f}")
@@ -53,7 +57,7 @@ norm = lambda w: _re.sub(r"[^a-z0-9]", "", w.lower())
 caps = []
 # Captions show the exact script text; Whisper (run per section) only supplies the timing.
 for sc, it in zip(scenes, ITEMS):
-    segs, _ = model.transcribe(str(PUB / "vo" / f"{sc['id']}.wav"), word_timestamps=True, language="en",
+    segs, _ = model.transcribe(str(PUB / VO / f"{sc['id']}.wav"), word_timestamps=True, language="en",
                                condition_on_previous_text=False)
     heard = [w for s_ in segs for w in s_.words]
     words = it["text"].split()
@@ -83,7 +87,7 @@ for sc, it in zip(scenes, ITEMS):
     for w, (t0, t1) in zip(words, times):
         caps.append({"text": " " + w, "startMs": round(off + t0), "endMs": round(off + t1),
                      "timestampMs": round(off + t0), "confidence": 1})
-json.dump(caps, open(PUB / "captions.json", "w"), indent=0)
+json.dump(caps, open(PUB / f"captions{SUF}.json", "w"), indent=0)
 
 
 def srt(x):
@@ -102,7 +106,7 @@ for w in caps:
         cur = []
 if cur:
     lines.append(cur)
-with open(OUT / "glyphsweep.srt", "w", encoding="utf-8") as f:
+with open(OUT / f"glyphsweep{SUF}.srt", "w", encoding="utf-8") as f:
     for i, l in enumerate(lines, 1):
         f.write(f"{i}\n{srt(l[0]['startMs'] / 1000)} --> {srt(l[-1]['endMs'] / 1000)}\n{''.join(w['text'] for w in l).strip()}\n\n")
 print(len(caps), "words")

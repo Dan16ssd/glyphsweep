@@ -97,6 +97,8 @@ The bundled **hostile demo shop** (`control/demo/shop.html`, a Lao coffee store)
 
 **On a real site: [laocoffee.org/lao/](https://laocoffee.org/lao/)** (Keoset Community Coffee, Northern Laos). The site's theme ships no Lao font, so on a phone without one the Lao text is boxes. Bare-phone OCR read "ຂໍຕ້ອນຮັບ ກາເຟແກ່ວແສດ" as `ມ ?(າດດ%`; after GlyphSweep's proven patch it reads `ຂໍຕ໋ອນຮັບ ກາເຟແກ່ວແສດ`. **OCR error 94% → 7%, score 50 → 74**, 11/12 problems confirmed visible by the vision model, 6 sandboxes used and destroyed, 75 off-allowlist requests blocked. [Live report](https://45-77-254-54.sslip.io/#b3a71cc89b75).
 
+**Why does the score stop at 74?** That is the ceiling for a CSS patch. The score is `100·exp(−Σ worst severity per problem type / 40)`; after the fix, the only problems left are a wrong `lang` attribute (high, 8) and untranslated English UI (medium, 4), which need an HTML or content change by the site owner. exp(−12/40) = 0.74. GlyphSweep reports those as *needs a source change* (and drafts the translations) instead of pretending CSS fixed them.
+
 ## Red team: we attack our own sandbox (https://45-77-254-54.sslip.io/#redteam)
 
 One click (or `POST /api/redteam`) starts **five fresh gVisor sandboxes that attack themselves**. Verdicts are taken from **outside** the sandbox wherever possible: the egress proxy's log (did any byte reach a host that isn't on the allowlist?) and Docker (OOM-killed? timed out? destroyed?). The attack pages are in [`control/demo/redteam/`](control/demo/redteam).

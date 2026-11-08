@@ -1,0 +1,13 @@
+[
+ {"id": "p01-hook", "text": "A hundred and fifty million people read Lao, Thai, Khmer and Burmese. We measured a hundred and forty-four of their websites. Half of them break the text."},
+ {"id": "p02-measure", "text": "Tone marks are clipped, syllables split, and forty-five percent never send a font for their own language. On a phone without one, the text turns into boxes. Web QA tools were built for Latin text, so they can't see it."},
+ {"id": "p03-agent", "text": "GlyphSweep is an AI agent on Vultr that finds these failures, fixes them, and proves the fix. Detectors measure real glyph ink. A bare-phone render, read back by OCR, turns boxes into a number. Vultr Serverless Inference plans the crawl, checks the screenshot with vision, and writes the patch."},
+ {"id": "p04-real", "text": "Here is a real site: Keoset Community Coffee, in Lao. On a phone without a Lao font, the heading is boxes, and OCR reads nonsense. After the proven patch, it reads the Lao back. OCR error falls from ninety-four percent to seven. The score rises from fifty to seventy-four."},
+ {"id": "p05-ceiling", "text": "Why seventy-four? That is the ceiling for CSS. What's left, a wrong language tag and untranslated English, needs the site owner. So GlyphSweep reports it, instead of pretending."},
+ {"id": "p06-arch", "text": "Every page is treated as hostile. Each stage runs in a fresh gVisor sandbox: read-only, non-root, no capabilities, hard memory and time limits. Its only way out is a per-job allowlist proxy. The API key never enters the sandbox, and every container is destroyed, and verified gone."},
+ {"id": "p07-hostile", "text": "Our demo shop fights back. It tries to steal cloud credentials, send cookies away, and inject instructions into the agent. Every request is blocked, the injection is flagged, and every issue is still reported."},
+ {"id": "p08-redteam", "text": "And you don't have to trust us. One click runs five sandboxes that attack themselves: hostile pages, code execution, a fork bomb, a memory bomb. Forty-three attacks, forty-three contained, judged from the proxy log, not the sandbox's word."},
+ {"id": "p09-approve", "text": "The model proposes. Measurements decide. A human releases: the patch stays locked until a person approves it."},
+ {"id": "p10-business", "text": "GlyphSweep ships as a GitHub Action that fails the build when a page breaks. Sold per site, per month, to banks, telcos, online shops and localization agencies across Southeast Asia. And each new script is just a Unicode range and two fonts."},
+ {"id": "p11-close", "text": "GlyphSweep. Every script, readable on every phone. Live now, on Vultr."}
+]

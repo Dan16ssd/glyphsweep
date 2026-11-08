@@ -12,14 +12,16 @@ from pathlib import Path
 import edge_tts
 
 HERE = Path(__file__).parent
-OUT = HERE / "public" / "vo"
+import os
+V = os.environ.get("GS_VARIANT", "")
+OUT = HERE / "public" / ("vo-" + V if V else "vo")
 OUT.mkdir(parents=True, exist_ok=True)
 VOICE = sys.argv[1] if len(sys.argv) > 1 else "en-US-AndrewMultilingualNeural"
 RATE = sys.argv[2] if len(sys.argv) > 2 else "+0%"
 
 
 async def main():
-    for item in json.load(open(HERE / "narration.json", encoding="utf-8")):
+    for item in json.load(open(HERE / (f"narration_{V}.json" if V else "narration.json"), encoding="utf-8")):
         mp3 = OUT / f"{item['id']}.mp3"
         for attempt in range(5):
             try:

@@ -18,6 +18,8 @@ GlyphSweep — a sandboxed AI agent that fixes how the web renders Southeast Asi
 
 **On a real site: [laocoffee.org/lao/](https://laocoffee.org/lao/)** (Keoset Community Coffee, Northern Laos). The site's theme ships no Lao font, so on a phone without one the Lao text is boxes. Bare-phone OCR read "ຂໍຕ້ອນຮັບ ກາເຟແກ່ວແສດ" as `ມ ?(າດດ%`; after GlyphSweep's proven patch it reads `ຂໍຕ໋ອນຮັບ ກາເຟແກ່ວແສດ`. **OCR error 94% → 7%, score 50 → 74**, 11/12 problems confirmed visible by the vision model, 6 sandboxes used and destroyed, 75 off-allowlist requests blocked. [Live report](https://45-77-254-54.sslip.io/#b3a71cc89b75).
 
+**Why does the score stop at 74?** That is the ceiling for a CSS patch. The score is `100·exp(−Σ worst severity per problem type / 40)`; after the fix, the only problems left are a wrong `lang` attribute (high, 8) and untranslated English UI (medium, 4), which need an HTML or content change by the site owner. exp(−12/40) = 0.74. GlyphSweep reports those as *needs a source change* (and drafts the translations) instead of pretending CSS fixed them.
+
 **Results on the hostile demo shop** (same shop, same attacks, in every script; score 33 → 74 in each):
 
 | Script | Bare-device OCR error before → after |

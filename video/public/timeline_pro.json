@@ -1,0 +1,71 @@
+{
+ "total": 162.032,
+ "scenes": [
+  {
+   "id": "p01-hook",
+   "start": 0.0,
+   "duration": 10.324,
+   "voice": 0.6
+  },
+  {
+   "id": "p02-measure",
+   "start": 10.324,
+   "duration": 14.476,
+   "voice": 10.324
+  },
+  {
+   "id": "p03-agent",
+   "start": 24.8,
+   "duration": 20.38,
+   "voice": 24.8
+  },
+  {
+   "id": "p04-real",
+   "start": 45.18,
+   "duration": 19.036,
+   "voice": 45.18
+  },
+  {
+   "id": "p05-ceiling",
+   "start": 64.216,
+   "duration": 12.196,
+   "voice": 64.216
+  },
+  {
+   "id": "p06-arch",
+   "start": 76.412,
+   "duration": 20.644,
+   "voice": 76.412
+  },
+  {
+   "id": "p07-hostile",
+   "start": 97.056,
+   "duration": 14.5,
+   "voice": 97.056
+  },
+  {
+   "id": "p08-redteam",
+   "start": 111.556,
+   "duration": 16.612,
+   "voice": 111.556
+  },
+  {
+   "id": "p09-approve",
+   "start": 128.168,
+   "duration": 7.948,
+   "voice": 128.168
+  },
+  {
+   "id": "p10-business",
+   "start": 136.116,
+   "duration": 16.828,
+   "voice": 136.116
+  },
+  {
+   "id": "p11-close",
+   "start": 152.944,
+   "duration": 9.088,
+   "voice": 152.944
+  }
+ ]
+}
