@@ -132,13 +132,13 @@ def run_page(browser, url, spec, net, with_shot=True):
         resp = page.goto(url, wait_until="domcontentloaded", timeout=25000)
         status = resp.status if resp else None
         try:
-            page.wait_for_load_state("networkidle", timeout=8000)
+            page.wait_for_load_state("networkidle", timeout=4000)  # sites with analytics never go idle
         except Exception:  # noqa: BLE001
             pass
         if spec.get("css_patch"):
             page.add_style_tag(content=spec["css_patch"])
             try:
-                page.wait_for_load_state("networkidle", timeout=6000)
+                page.wait_for_load_state("networkidle", timeout=3000)
             except Exception:  # noqa: BLE001
                 pass
             page.wait_for_timeout(400)

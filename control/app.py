@@ -172,9 +172,11 @@ def run_job(job):
 
             # 2. planner picks more pages (only from links the sandbox actually saw)
             extra = []
-            if llm.enabled() and MAX_PAGES > 1:
+            if llm.enabled() and (MAX_PAGES if job.get("demo") else min(MAX_PAGES, 2)) > 1:
                 try:
-                    plan = llm.plan_pages(url, script, pages[0].get("links", []), MAX_PAGES - 1)
+                    # real sites: at most 1 extra page, so every prove sandbox stays fast; the demo shop is tiny
+                    budget = MAX_PAGES if job.get("demo") else min(MAX_PAGES, 2)
+                    plan = llm.plan_pages(url, script, pages[0].get("links", []), budget - 1)
                     extra = plan["pages"]
                     job["model"]["plan"] = plan
                     event(job, "plan", "done", f"Planner chose {len(extra)} more page(s): {plan['reasoning']}"

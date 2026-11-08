@@ -152,6 +152,8 @@
   .why { color:var(--mute); font-size:12.5px; margin-top:14px; }
   a.dl { font-size:13px; padding:7px 12px; border:1px solid var(--edge2); border-radius:9px; color:var(--gold2); text-decoration:none; background:rgba(242,181,68,.06); }
   a.dl:hover { background:rgba(242,181,68,.14); }
+  .errbox { border:1px solid rgba(251,113,133,.45); border-radius:12px; background:rgba(251,113,133,.06); color:var(--ink); }
+  .tick { font-variant-numeric:tabular-nums; color:var(--gold2); }
   .approve { margin-top:12px; padding:14px; border-radius:12px; border:1px solid rgba(242,181,68,.55); background:rgba(242,181,68,.08); animation:pulseA 2.4s ease-in-out infinite; }
   .approve.rej { border-color:rgba(251,113,133,.5); background:rgba(251,113,133,.07); animation:none; }
   .approve-h { font-weight:700; color:var(--gold2); font-size:15px; } .approve.rej .approve-h { color:#fb7185; }
@@ -323,7 +325,7 @@ async function poll(id, fails = 0) {
 function render() {
   if (!job) return;
   $("#events").innerHTML = job.events.map(e => `<div class="ev"><span class="dot ${e.status}"></span><div><div class="step">${esc(e.step)}</div>${esc(e.msg)}</div></div>`).join("")
-    + (["done", "error"].includes(job.status) ? "" : `<div class="ev"><span class="dot running"></span><div class="muted">working…</div></div>`);
+    + (["done", "error"].includes(job.status) ? "" : `<div class="ev"><span class="dot running"></span><div class="muted">working… ${elapsed()}<br>${hint()}</div></div>`);
   if (job.score) {
     $("#scorecard").hidden = false; $("#sb").textContent = job.score.before; $("#sa").textContent = job.score.after;
     const b = job.before || [], fixed = b.filter(f => f.fixed).length, src = b.filter(f => !f.fixed && SOURCE_ONLY.has(f.check)).length;
@@ -363,9 +365,26 @@ async function decide(d) {
   } catch (e) { alertBox("Network error: " + e.message); render(); }
 }
 
+function elapsed() {
+  const s = Math.max(0, Math.round(Date.now() / 1000 - (job.created || Date.now() / 1000)));
+  return `<span class="tick">${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}</span>`;
+}
+
+// What the current stage is doing and how long it usually takes.
+function hint() {
+  const last = (job.events || []).slice(-1)[0] || {};
+  const m = last.msg || "";
+  if (/^Sandbox #1/.test(m)) return "Loading the site in a fresh gVisor sandbox, running detectors and a bare-device OCR render (real sites: 20–60 s).";
+  if (/^Sandbox #2/.test(m)) return "Auditing the pages the planner picked, in a second fresh sandbox (20–60 s).";
+  if (/re-render every page/.test(m)) return "Proving a patch: a brand-new sandbox re-renders every page with it and re-measures (20–60 s per round).";
+  if (last.step === "verify" || last.step === "fix" || last.step === "plan") return "Asking Vultr Serverless Inference (usually a few seconds).";
+  return "Every stage runs in its own sandbox; a full sweep takes 2–4 minutes.";
+}
+
 function findings() {
   const b = job.before || [];
-  if (!b.length) return `<div class="empty">${job.status === "done" ? "No issues found 🎉" : "Waiting for the first sandbox…"}</div>`;
+  if (job.status === "error") return `<div class="empty errbox"><b>${/^Inconclusive/.test(job.error || "") ? "Inconclusive" : "Sweep stopped"}</b><br>${esc(job.error || "Unknown error")}</div>`;
+  if (!b.length) return `<div class="empty">${job.status === "done" ? "No issues found 🎉" : `Sandbox #1 is rendering the page… ${elapsed()}<br><span class="muted">${hint()}</span>`}</div>`;
   const inj = (job.injections || []).length ? `<p class="pill bad">⚠ ${job.injections.length} prompt-injection string(s) on the page were treated as data, not instructions</p>` : "";
   return inj + `<table><tr><th>Issue</th><th>Sev</th><th>Where / text</th><th>Vision check</th><th>After fix</th></tr>` + b.map(f => `
     <tr><td>${esc(CHECK[f.check] || f.check)}</td><td><span class="sev ${f.severity}">${f.severity}</span></td>
