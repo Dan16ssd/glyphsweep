@@ -1,0 +1,5 @@
+# GS_DOMAIN may list several hostnames, e.g. "45-77-254-54.sslip.io, glyphsweep.duckdns.org".
+# Each gets its own Let's Encrypt certificate. Empty = plain HTTP on :80.
+{$GS_DOMAIN::80} {
+	reverse_proxy control:8000
+}

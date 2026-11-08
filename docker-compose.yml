@@ -10,12 +10,13 @@ services:
     networks: [gs-egress]
     restart: unless-stopped
 
-  # TLS front door. GS_DOMAIN=<ip-with-dashes>.sslip.io gets a real Let's Encrypt cert; empty = plain :80.
+  # TLS front door. GS_DOMAIN=<ip-with-dashes>.sslip.io (comma-separate extra hostnames) gets real
+  # Let's Encrypt certs; empty = plain :80. See deploy/Caddyfile.
   caddy:
     image: caddy:2.8.4
-    command: ["caddy", "reverse-proxy", "--from", "${GS_DOMAIN:-:80}", "--to", "control:8000"]
+    environment: ["GS_DOMAIN=${GS_DOMAIN:-}"]
     ports: ["80:80", "443:443"]
-    volumes: [caddydata:/data]
+    volumes: [caddydata:/data, ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro]
     networks: [gs-egress]
     depends_on: [control]
     restart: unless-stopped

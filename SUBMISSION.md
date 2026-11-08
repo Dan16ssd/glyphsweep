@@ -46,6 +46,8 @@ GlyphSweep — a sandboxed AI agent that fixes how the web renders Southeast Asi
 
 **Who pays:** banks, telcos and e-commerce in SE Asia (a pre-release gate for the checkout their customers see on cheap Android phones), localization agencies (machine evidence for every delivery), government portals (accessibility and `lang` compliance), and global brands entering markets where nobody on the team reads the script. Each script is a Unicode range plus two sentinel fonts, so Devanagari, Arabic, Tibetan and Sinhala are the same kind of addition.
 
+**Pricing:** $49 per site per month; agencies $299 for 10 sites.
+
 **Why us:** built in Vientiane by a Lao developer who also trained a Lao speech-recognition model (5.98% CER on FLEURS). We see broken ພາສາລາວ every day; the scan shows our neighbours do too.
 
 ## Links
