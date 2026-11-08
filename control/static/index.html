@@ -25,6 +25,19 @@
   a { color:var(--gold2); }
   .wrap { max-width:1200px; margin:0 auto; padding:0 24px; }
 
+  /* ---------- red team ---------- */
+  .rt-head { display:flex; flex-wrap:wrap; align-items:center; gap:18px; margin-bottom:16px; }
+  .rt-big { font-size:clamp(40px,6vw,64px); font-weight:800; color:var(--ok); line-height:1; letter-spacing:-.03em; }
+  .rt-big.bad { color:var(--bad); }
+  .rt-sum { color:var(--mute); max-width:560px; }
+  .rt-tier { display:inline-block; font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--gold2);
+             border:1px solid var(--edge2); border-radius:6px; padding:1px 6px; white-space:nowrap; }
+  #rtTable td { vertical-align:top; padding:7px 8px; border-top:1px solid var(--edge); }
+  #rtTable td.ev { color:var(--mute); font-size:12.5px; word-break:break-word; }
+  #rtTable .v { font-weight:700; white-space:nowrap; }
+  #rtTable .v.ok { color:var(--ok); } #rtTable .v.no { color:var(--bad); }
+  .rt-wrap { overflow-x:auto; }
+  .rule { font-size:clamp(17px,2vw,21px); font-weight:700; margin:-10px 0 26px; color:var(--gold2); }
   /* ---------- nav ---------- */
   nav { position:absolute; inset:0 0 auto 0; z-index:5; }
   nav .wrap { display:flex; align-items:center; justify-content:space-between; height:72px; }
@@ -180,7 +193,7 @@
 <body>
 <nav><div class="wrap">
   <a class="brand" href="/"><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 1l15 15-15 15L1 16z" fill="#f2b544"/><path d="M16 8l8 8-8 8-8-8z" fill="#0f0d24"/><path d="M16 12.5l3.5 3.5-3.5 3.5-3.5-3.5z" fill="#34d399"/></svg><span>Glyph<b>Sweep</b></span></a>
-  <div class="links"><a href="#how">How it works</a><a href="#evidence">Evidence</a><a href="#app">Live agent</a>
+  <div class="links"><a href="#how">How it works</a><a href="#evidence">Evidence</a><a href="#app">Live agent</a><a href="#redteam">Red team</a>
     <a class="gh" href="https://github.com/Dan16ssd/glyphsweep" target="_blank" rel="noopener">GitHub ↗</a></div>
 </div></nav>
 
@@ -198,7 +211,7 @@
   </form>
   <div class="demo-row"><button class="demo" type="button" id="demo"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" style="vertical-align:-2px;margin-right:6px"><path d="M12 2l9 4v6c0 5-3.8 8.6-9 10-5.2-1.4-9-5-9-10V6z"/><path d="M9 12l2 2 4-4"/></svg>Run hostile demo shop</button>
     <span>A coffee shop, in whichever script you picked, that tries to steal cloud credentials and hijack the AI. Watch it fail.</span></div>
-  <div class="chips"><span>Disposable gVisor sandbox per stage</span><span>Zero secrets inside</span><span>Vultr Serverless Inference</span></div>
+  <div class="chips"><span>Disposable gVisor sandbox per stage</span><span>Zero secrets inside</span><span>Vultr Serverless Inference</span><a href="#redteam" style="text-decoration:none"><span id="rtChip">Red-teamed: results ↓</span></a></div>
 </div></header>
 
 <div class="wrap" id="evidence">
@@ -220,6 +233,7 @@
 <section id="how"><div class="wrap">
   <div class="eyebrow">How the agent works</div>
   <h2 class="big">Nothing is trusted. Everything is measured.</h2>
+  <p class="rule">The model proposes. Measurements decide. A human releases.</p>
   <div class="steps">
     <div class="stp"><span class="k">01 · plan</span><b>Scope</b><p>Validates the URL and builds a per-job egress allowlist.</p></div>
     <div class="stp sbx-step"><span class="k">02 · dispatch</span><b>Sandbox render</b><p>Chromium in gVisor runs deterministic detectors on real glyph ink.</p></div>
@@ -257,6 +271,20 @@
       <div id="view"><div class="empty">Run a sweep, or the hostile demo, to see results.</div></div>
     </div>
   </div>
+</div></section>
+
+<section id="redteam"><div class="wrap">
+  <div class="eyebrow">Red team · attack our own sandbox</div>
+  <h2 class="big">We tried to break out. Run it yourself.</h2>
+  <div class="rt-head">
+    <div class="rt-big" id="rtBig">–</div>
+    <div class="rt-sum" id="rtSum">Five fresh gVisor sandboxes attack themselves: hostile pages, code execution, memory bomb, fork bomb, hang.
+      Verdicts come from the egress proxy's log and Docker, not from the sandbox's own word.</div>
+    <button class="demo" type="button" id="rtGo">Run the red team (≈1 min) →</button>
+  </div>
+  <div class="card"><div id="rtEvents" class="muted" style="font-size:13px;margin-bottom:8px"></div>
+    <div class="rt-wrap"><table id="rtTable"><tr><td class="muted">Loading the latest run…</td></tr></table></div></div>
+  <p class="why">Badge for your README: <code>![red-team](https://45-77-254-54.sslip.io/api/redteam/badge.svg)</code> · attack pages: <a href="https://github.com/Dan16ssd/glyphsweep/tree/main/control/demo/redteam" target="_blank" rel="noopener">control/demo/redteam</a></p>
 </div></section>
 
 <footer><div class="wrap">
@@ -467,6 +495,39 @@ function contain() {
 const isJob = (h) => /^#[0-9a-f]{8,}$/.test(h);
 if (isJob(location.hash)) { poll(location.hash.slice(1)); setTimeout(() => document.getElementById("app").scrollIntoView(), 300); }
 window.addEventListener("hashchange", () => { if (isJob(location.hash) && (!job || job.id !== location.hash.slice(1))) { job = null; poll(location.hash.slice(1)); } });
+
+// ---------- red team
+let rtTimer = null;
+function rtRender(j) {
+  const rt = j.redteam || {}, rows = rt.rows || [];
+  const running = !["done", "error"].includes(j.status);
+  $("#rtEvents").innerHTML = (j.events || []).filter(e => e.step !== "plan").map(e => esc(e.msg)).slice(-6).join("<br>") +
+    (running ? `<br>working… ${Math.floor((Date.now() / 1000 - j.created) / 60)}:${String(Math.floor(Date.now() / 1000 - j.created) % 60).padStart(2, "0")}` : "");
+  if (!rows.length) { $("#rtTable").innerHTML = `<tr><td class="muted">${running ? "Attacks running in fresh sandboxes…" : "No results."}</td></tr>`; return; }
+  const ok = rows.filter(r => r.contained).length;
+  if (!running) {
+    $("#rtBig").textContent = `${ok}/${rows.length}`; $("#rtChip").textContent = `Red-team: ${ok}/${rows.length} attacks contained`; $("#rtBig").classList.toggle("bad", ok !== rows.length);
+    $("#rtSum").innerHTML = `attacks contained on <b>${esc(rt.runtime || "?")}</b>, ${new Date((rt.finished || j.created) * 1000).toLocaleString()}. ` +
+      `${(j.containment || []).length} sandboxes + proxies created and destroyed. Verdicts from the proxy log and Docker, not the sandbox's own word.`;
+  }
+  $("#rtTable").innerHTML = `<tr><th>Tier</th><th>Attack</th><th>What happened (evidence)</th><th>Verdict</th></tr>` + rows.map(r =>
+    `<tr><td><span class="rt-tier">${esc(r.tier)}</span></td><td>${esc(r.attack)}</td><td class="ev">${esc(r.evidence)}</td>` +
+    `<td class="v ${r.contained ? "ok" : "no"}">${r.contained ? "✓ contained" : "✗ escaped"}</td></tr>`).join("");
+}
+async function rtPoll(id) {
+  clearTimeout(rtTimer);
+  try { const r = await fetch("/api/jobs/" + id); if (r.ok) { const j = await r.json(); rtRender(j); if (["done", "error"].includes(j.status)) { $("#rtGo").disabled = false; return; } } } catch (e) {}
+  rtTimer = setTimeout(() => rtPoll(id), 1500);
+}
+fetch("/api/redteam/latest").then(r => r.ok ? r.json() : null).then(j => { if (j) rtRender(j); else $("#rtTable").innerHTML = '<tr><td class="muted">No run yet. Press the button.</td></tr>'; }).catch(() => {});
+$("#rtGo").onclick = async () => {
+  $("#rtGo").disabled = true;
+  try {
+    const r = await fetch("/api/redteam", { method: "POST" });
+    if (!r.ok) { let d = "Request failed"; try { d = (await r.json()).detail || d; } catch (e) {} $("#rtEvents").textContent = d; $("#rtGo").disabled = false; return; }
+    const { id } = await r.json(); $("#rtBig").textContent = "…"; rtPoll(id);
+  } catch (e) { $("#rtEvents").textContent = "Network error: " + e.message; $("#rtGo").disabled = false; }
+};
 </script>
 </body>
 </html>
