@@ -12,6 +12,10 @@
   "text": "So we built GlyphSweep, an AI agent on Vultr. It plans which pages to check, opens each one in a browser, measures what a reader actually sees, writes a fix, and then proves the fix works."
  },
  {
+  "id": "035-exploded",
+  "text": "Here's how it works inside. The web app and the control plane run on a Vultr cloud compute server. For every stage, the control plane starts a fresh gVisor container with a headless browser. Its only network path is a proxy that allows just the target site and Google Fonts. Screenshots, measurements and OCR come back to the control plane, which asks Vultr Serverless Inference to plan, verify and write the fix. The API key never leaves the control plane."
+ },
+ {
   "id": "04-sandbox",
   "text": "But an agent that browses the web is dangerous. Any page can attack it. So every page opens in a throwaway gVisor sandbox. There are no secrets inside. The only way out is an allowlist proxy, made for that one job. When the stage ends, the box is destroyed, and we check that it's really gone."
  },
@@ -34,6 +38,10 @@
  {
   "id": "085-approve",
   "text": "And the agent never ships on its own. The proven patch stays locked until a human reviews the before and after, and clicks approve. Only then is it released."
+ },
+ {
+  "id": "087-business",
+  "text": "So who pays for this? Banks, telcos and online shops in Southeast Asia, where most customers use budget Android phones. One broken checkout button means lost sales and support calls. GlyphSweep runs as a release gate in their deploy pipeline, sold per site, per month. Localization agencies use it as proof for every delivery, and government portals for accessibility. And each script is just a Unicode range and two fonts, so the same agent extends to Hindi, Arabic, Tibetan and Sinhala, hundreds of millions more readers."
  },
  {
   "id": "09-close",

@@ -42,7 +42,7 @@ SRC = {sid: rec for sid in PLAN}
 if rec_approve:
     r = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", rec_approve],
                        capture_output=True, text=True, check=True)
-    PLAN["085-approve"] = [(0.7, 0.7 + TL["085-approve"]["duration"], 1.0, "Human approval")]  # real time: the click lands on "clicks approve"
+    PLAN["085-approve"] = [(2.6, 2.6 + TL["085-approve"]["duration"], 1.0, "Human approval")]  # real time: the click lands on "clicks approve"
     SRC["085-approve"] = rec_approve
 
 out = {}

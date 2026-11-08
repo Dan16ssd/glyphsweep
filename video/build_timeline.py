@@ -46,37 +46,43 @@ for s in scenes:
     print(f"  {s['id']:12s} {s['start']:6.1f} +{s['duration']:5.1f}")
 
 model = WhisperModel("small.en", device="cpu", compute_type="int8")
+import difflib
+import re as _re
+
+norm = lambda w: _re.sub(r"[^a-z0-9]", "", w.lower())
 caps = []
-# Transcribe each section on its own (whole-track transcription hallucinates over long silences)
-# and shift by where that section's voice starts in the mix.
-for sc in scenes:
+# Captions show the exact script text; Whisper (run per section) only supplies the timing.
+for sc, it in zip(scenes, ITEMS):
     segs, _ = model.transcribe(str(PUB / "vo" / f"{sc['id']}.wav"), word_timestamps=True, language="en",
-                               initial_prompt="GlyphSweep, Vultr, gVisor, Vientiane, Noy, OCR, Lao, Khmer, Burmese, API, allowlist",
-                               vad_filter=False, condition_on_previous_text=False)
+                               condition_on_previous_text=False)
+    heard = [w for s_ in segs for w in s_.words]
+    words = it["text"].split()
     off = sc["voice"] * 1000
-    first = len(caps)
-    for s_ in segs:
-        for w in s_.words:
-            caps.append({"text": w.word, "startMs": round(off + w.start * 1000), "endMs": round(off + w.end * 1000),
-                         "timestampMs": round(off + w.start * 1000), "confidence": w.probability})
-    if len(caps) > first:  # each section is a sentence boundary
-        t = caps[first]["text"]
-        caps[first]["text"] = t[: len(t) - len(t.lstrip())] + t.lstrip()[:1].upper() + t.lstrip()[1:]
-        if caps[-1]["text"].rstrip()[-1:] not in ".?!":
-            caps[-1]["text"] = caps[-1]["text"].rstrip(" ,") + "."
-# join "Glyph" + "sweep"
-merged = []
-for w in caps:
-    if merged and merged[-1]["text"].strip() == "Glyph" and w["text"].strip().lower().startswith("sweep"):
-        merged[-1]["text"] = merged[-1]["text"] + w["text"].strip().replace("sweep", "Sweep")
-        merged[-1]["endMs"] = w["endMs"]
-    else:
-        merged.append(w)
-caps = merged
-FIX = {"Noi": "Noy", "VNCAINE": "Vientiane", "VNCAne": "Vientiane", "VNCaine": "Vientiane", "Lao Thai": "Lao, Thai", "docker": "Docker", "throwaway,": "throwaway"}
-for w in caps:
-    for a, b in FIX.items():
-        w["text"] = w["text"].replace(a, b)
+    times = [None] * len(words)
+    sm = difflib.SequenceMatcher(a=[norm(w) for w in words], b=[norm(w.word) for w in heard], autojunk=False)
+    for blk in sm.get_matching_blocks():
+        for k in range(blk.size):
+            h = heard[blk.b + k]
+            times[blk.a + k] = (h.start * 1000, h.end * 1000)
+    end_all = (heard[-1].end * 1000) if heard else 1000
+    # fill unmatched words by interpolating between known neighbours
+    i = 0
+    while i < len(words):
+        if times[i] is None:
+            j = i
+            while j < len(words) and times[j] is None:
+                j += 1
+            t0 = times[i - 1][1] if i > 0 else 0
+            t1 = times[j][0] if j < len(words) else end_all
+            step = (t1 - t0) / (j - i)
+            for k in range(i, j):
+                times[k] = (t0 + step * (k - i), t0 + step * (k - i + 1))
+            i = j
+        else:
+            i += 1
+    for w, (t0, t1) in zip(words, times):
+        caps.append({"text": " " + w, "startMs": round(off + t0), "endMs": round(off + t1),
+                     "timestampMs": round(off + t0), "confidence": 1})
 json.dump(caps, open(PUB / "captions.json", "w"), indent=0)
 
 

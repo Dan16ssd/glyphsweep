@@ -3,6 +3,10 @@ import { loadFont as loadLao } from '@remotion/google-fonts/NotoSansLao';
 import { loadFont as loadThai } from '@remotion/google-fonts/NotoSansThai';
 import { loadFont as loadKhmer } from '@remotion/google-fonts/NotoSansKhmer';
 import { loadFont as loadMyanmar } from '@remotion/google-fonts/NotoSansMyanmar';
+import { loadFont as loadDeva } from '@remotion/google-fonts/NotoSansDevanagari';
+import { loadFont as loadArabic } from '@remotion/google-fonts/NotoSansArabic';
+import { loadFont as loadSinhala } from '@remotion/google-fonts/NotoSansSinhala';
+import { loadFont as loadTibetan } from '@remotion/google-fonts/NotoSerifTibetan';
 import { interpolate, spring } from 'remotion';
 import timelineJson from '../public/timeline.json';
 import captionsJson from '../public/captions.json';
@@ -30,6 +34,10 @@ export const F = {
   thai: loadThai('normal', { weights: ['400', '700'] }).fontFamily,
   khmer: loadKhmer('normal', { weights: ['400', '700'] }).fontFamily,
   myanmar: loadMyanmar('normal', { weights: ['400', '700'] }).fontFamily,
+  deva: loadDeva('normal', { weights: ['400', '700'] }).fontFamily,
+  arabic: loadArabic('normal', { weights: ['400', '700'] }).fontFamily,
+  sinhala: loadSinhala('normal', { weights: ['400', '700'] }).fontFamily,
+  tibetan: loadTibetan('normal', { weights: ['400', '700'] }).fontFamily,
 };
 
 export const FPS = 30;

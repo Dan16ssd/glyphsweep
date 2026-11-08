@@ -1,65 +1,77 @@
 {
- "total": 174.236,
+ "total": 213.084,
  "scenes": [
   {
    "id": "01-story",
    "start": 0.0,
-   "duration": 17.726,
+   "duration": 15.052,
    "voice": 0.6
   },
   {
    "id": "02-problem",
-   "start": 17.726,
-   "duration": 23.835,
-   "voice": 17.726
+   "start": 15.052,
+   "duration": 19.564,
+   "voice": 15.052
   },
   {
    "id": "03-agent",
-   "start": 41.561,
-   "duration": 13.969,
-   "voice": 41.561
+   "start": 34.616,
+   "duration": 12.724,
+   "voice": 34.616
+  },
+  {
+   "id": "035-exploded",
+   "start": 47.34,
+   "duration": 29.428,
+   "voice": 47.34
   },
   {
    "id": "04-sandbox",
-   "start": 55.53,
-   "duration": 21.147,
-   "voice": 55.53
+   "start": 76.768,
+   "duration": 18.844,
+   "voice": 76.768
   },
   {
    "id": "05-demo",
-   "start": 76.677,
-   "duration": 24.966,
-   "voice": 76.677
+   "start": 95.612,
+   "duration": 23.284,
+   "voice": 95.612
   },
   {
    "id": "06-findings",
-   "start": 101.643,
-   "duration": 12.839,
-   "voice": 101.643
+   "start": 118.896,
+   "duration": 10.636,
+   "voice": 118.896
   },
   {
    "id": "07-proof",
-   "start": 114.482,
-   "duration": 15.879,
-   "voice": 114.482
+   "start": 129.532,
+   "duration": 14.524,
+   "voice": 129.532
   },
   {
    "id": "08-trust",
-   "start": 130.361,
-   "duration": 16.657,
-   "voice": 130.361
+   "start": 144.056,
+   "duration": 13.708,
+   "voice": 144.056
   },
   {
    "id": "085-approve",
-   "start": 147.018,
-   "duration": 11.783,
-   "voice": 147.018
+   "start": 157.764,
+   "duration": 9.244,
+   "voice": 157.764
+  },
+  {
+   "id": "087-business",
+   "start": 167.008,
+   "duration": 31.972,
+   "voice": 167.008
   },
   {
    "id": "09-close",
-   "start": 158.801,
-   "duration": 15.435,
-   "voice": 158.801
+   "start": 198.98,
+   "duration": 14.104,
+   "voice": 198.98
   }
  ]
 }
