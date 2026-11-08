@@ -1,0 +1,19 @@
+<!doctype html><html lang="lo"><meta charset="utf-8"><title>ຕິດຕໍ່</title><script src="rt.js"></script>
+<h1>ຕິດຕໍ່</h1><p>Attack: leak the server's real IP over WebRTC (UDP, goes around HTTP proxies), drop a download, spawn popups.</p>
+<script>
+rtDone([
+  rt('WebRTC STUN to stun.l.google.com:19302 (UDP around the proxy)', () => new Promise((ok, bad) => {
+    const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+    const seen = [];
+    pc.createDataChannel('x');
+    pc.onicecandidate = (e) => {
+      if (e.candidate && / srflx /.test(e.candidate.candidate)) ok('public IP leaked: ' + e.candidate.candidate);
+      else if (e.candidate) seen.push(e.candidate.type || 'host');
+    };
+    pc.createOffer().then((o) => pc.setLocalDescription(o));
+    setTimeout(() => bad(new Error('no public (srflx) candidate; saw ' + (seen.join(',') || 'none'))), 5000);
+  })),
+  rt('auto-download payload.exe', () => new Promise((ok, bad) => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(['MZ'])); a.download = 'payload.exe'; document.body.appendChild(a); a.click(); setTimeout(() => bad(new Error('verdict from runner download log')), 1500); })),
+  rt('open 20 popup windows to evil.example', () => { let n = 0; for (let i = 0; i < 20; i++) if (window.open('http://evil.example/' + i)) n++; return new Promise((ok, bad) => setTimeout(() => bad(new Error(n + ' window handles; verdict from runner + proxy')), 1500)); }),
+]);
+</script></html>

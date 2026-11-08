@@ -1,0 +1,8 @@
+<!doctype html><html lang="lo"><meta charset="utf-8"><title>ບໍ່ສິ້ນສຸດ</title>
+<h1>ໜ້ານີ້ພະຍາຍາມຂ້າ browser</h1>
+<script>
+// Attack: exhaust memory, then spin forever. The sandbox must survive, report, and move on.
+const hog = [];
+try { for (let i = 0; i < 64; i++) hog.push(new Uint8Array(256 * 1024 * 1024).fill(1)); } catch (e) {}
+while (true) {}
+</script></html>

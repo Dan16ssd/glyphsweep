@@ -87,7 +87,8 @@ LOCAL = os.environ.get("GS_LOCAL") == "1"
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
-def dispatch(stage, pages, script, target_host, css_patch=None, bare_profile=True, internal_ok=None, sentinels=None):
+def dispatch(stage, pages, script, target_host, css_patch=None, bare_profile=True, internal_ok=None, sentinels=None,
+             extra=None, timeout=None):
     if LOCAL:
         return _dispatch_local(stage, pages, script, target_host, css_patch, internal_ok)
     c = client()
@@ -114,6 +115,8 @@ def dispatch(stage, pages, script, target_host, css_patch=None, bare_profile=Tru
             "proxy": f"http://{proxy_ip}:8888", "max_pages": 4,
             "sentinels": sentinels or SENTINELS[script],
         }
+        spec.update(extra or {})
+        limit_s = timeout or TIMEOUT_S
         host_config = dict(
             network=NET_INTERNAL, read_only=True,
             tmpfs={"/tmp": "rw,size=768m,mode=1777"}, shm_size="512m",
@@ -129,10 +132,10 @@ def dispatch(stage, pages, script, target_host, css_patch=None, bare_profile=Tru
         ev["limits"] = {"memory": MEM, "cpus": CPUS, "pids": 512, "read_only_rootfs": True, "tmpfs": "/tmp 768m",
                         "cap_drop": "ALL", "no_new_privileges": True, "network": f"{NET_INTERNAL} (internal, no route out)",
                         "egress": f"only via proxy {proxy_ip}:8888; allowlist = {', '.join(allow[:4])} + {max(0, len(allow) - 4)} CDN/font hosts",
-                        "timeout_s": TIMEOUT_S, "secrets_passed": 0}
+                        "timeout_s": limit_s, "secrets_passed": 0}
         timed_out = False
         try:
-            st = sbx.wait(timeout=TIMEOUT_S)
+            st = sbx.wait(timeout=limit_s)
             ev["exit_code"] = st.get("StatusCode")
         except Exception:  # noqa: BLE001  (requests ReadTimeout)
             timed_out = True

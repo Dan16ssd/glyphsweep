@@ -189,8 +189,190 @@ def self_probe():
     return res
 
 
+def rt_pages(p, spec):
+    """Red-team tier 1: load hostile pages and record what their attacks saw from the inside."""
+    out = []
+    browser = launch(p, spec)
+    for url in spec["redteam_pages"]:
+        net = {"requests": {}, "failed": [], "popups": []}
+        ctx, page = new_page(browser, spec, net)
+        downloads = []
+        page.on("download", lambda d: downloads.append(d.suggested_filename))
+        rec = {"url": url, "attempts": [], "error": None}
+        try:
+            page.goto(url, wait_until="domcontentloaded", timeout=15000)
+            page.wait_for_function("window.__rt && window.__rt.done", timeout=20000)
+            rec["attempts"] = page.evaluate("window.__rt.attempts")
+        except Exception as e:  # noqa: BLE001
+            rec["error"] = str(e)[:200]
+            try:
+                rec["attempts"] = page.evaluate("window.__rt ? window.__rt.attempts : []")
+            except Exception:  # noqa: BLE001
+                pass
+        if spec.get("inspect"):  # injection page: collect what the agent would read (links, text)
+            try:
+                res = page.evaluate(CHECKS_JS, {"script": spec["script"], "sentinels": spec.get("sentinels")})
+                rec["pageText"] = (res.get("pageText") or "")[:6000]
+                # ALL anchors, including off-site ones and their aria/title text: the planner is
+                # offered the attacker's links on purpose, to show the allowlist check drops them.
+                rec["links"] = page.evaluate("""[...document.querySelectorAll('a[href]')].map(a => ({href: a.href,
+                    text: [a.innerText, a.getAttribute('aria-label'), a.title].filter(Boolean).join(' | ')}))""")[:40]
+            except Exception as e:  # noqa: BLE001
+                rec["inspect_error"] = str(e)[:200]
+        rec["popups"] = list(net["popups"])
+        rec["downloads"] = downloads
+        rec["failed_requests"] = net["failed"][:20]
+        try:
+            ctx.close()
+        except Exception:  # noqa: BLE001
+            pass
+        out.append(rec)
+    browser.close()
+    return out
+
+
+def rt_crash(p, spec):
+    """Red-team tier 1b: a page that eats memory and spins forever. The runner must survive it."""
+    rec = {"url": spec["redteam_pages"][0]}
+    browser = launch(p, spec)
+    net = {"requests": {}, "failed": [], "popups": []}
+    ctx, page = new_page(browser, spec, net)
+    t0 = time.time()
+    try:
+        page.goto(rec["url"], wait_until="load", timeout=12000)
+        rec["page"] = "loaded (?)"
+    except Exception as e:  # noqa: BLE001
+        rec["page"] = "stopped by timeout/crash: " + str(e).split("\n")[0][:120]
+    rec["seconds"] = round(time.time() - t0, 1)
+    try:
+        ctx.close()
+        browser.close()
+    except Exception:  # noqa: BLE001
+        pass
+    # Prove the sandbox is still healthy: a fresh browser renders a normal page afterwards.
+    try:
+        b2 = launch(p, spec)
+        c2, p2 = new_page(b2, spec, net)
+        p2.goto(spec["healthy_page"], wait_until="domcontentloaded", timeout=15000)
+        rec["after"] = "healthy: rendered " + (p2.title() or spec["healthy_page"])
+        b2.close()
+    except Exception as e:  # noqa: BLE001
+        rec["after"] = "not healthy: " + str(e)[:120]
+    return rec
+
+
+def rt_rce():
+    """Red-team tier 2: assume the attacker already runs code in the sandbox. What can it reach?"""
+    import signal
+    import socket
+    res = self_probe()
+
+    def add(probe, fn):
+        try:
+            res.append({"probe": probe, "result": fn()})
+        except Exception as e:  # noqa: BLE001
+            res.append({"probe": probe, "result": f"blocked: {type(e).__name__}: {str(e)[:70]}"})
+
+    add("resolve evil.example via DNS (DNS tunnel exfil)", lambda: "RESOLVED (!) " + socket.gethostbyname("evil.example"))
+
+    def udp_dns():
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.settimeout(3)
+        q = b"\x12\x34\x01\x00\x00\x01\x00\x00\x00\x00\x00\x00\x07example\x03com\x00\x00\x01\x00\x01"
+        s.sendto(q, ("8.8.8.8", 53))
+        data = s.recvfrom(512)[0]
+        return f"ANSWERED (!) {len(data)} bytes"
+    add("raw UDP DNS query to 8.8.8.8:53 (bypassing proxy)", udp_dns)
+    add("open a raw ICMP socket (network scanning)", lambda: (socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_ICMP), "OPENED (!)")[1])
+    add("become root: setuid(0)", lambda: (os.setuid(0), "ROOT (!)")[1])
+    add("mount a filesystem", lambda: "MOUNTED (!)" if subprocess.run(["mount", "-t", "tmpfs", "x", "/tmp/m"], capture_output=True).returncode == 0
+        else "blocked: " + subprocess.run(["mount", "-t", "tmpfs", "x", "/tmp/m"], capture_output=True, text=True).stderr.strip()[:70])
+    add("TCP to the control plane control:8000", lambda: (socket.create_connection(("control", 8000), timeout=3), "CONNECTED (!)")[1])
+    add("TCP to the Docker host gateway 172.17.0.1:2375", lambda: (socket.create_connection(("172.17.0.1", 2375), timeout=3), "CONNECTED (!)")[1])
+
+    def kernel():
+        v = open("/proc/version").read().strip()
+        try:
+            d = subprocess.run(["dmesg"], capture_output=True, text=True, timeout=5).stdout
+        except Exception:  # noqa: BLE001
+            d = ""
+        g = "gVisor" in d or "gVisor" in v or ("4.4.0" in v and "2016" in v)  # gVisor reports a fixed fake kernel
+        return ("gVisor user-space kernel, not the host's: " if g else "kernel: ") + v[:70]
+    add("which kernel answers my syscalls?", kernel)
+
+    def fork_bomb():
+        kids = []
+        try:
+            for _ in range(2000):
+                pid = os.fork()
+                if pid == 0:
+                    time.sleep(30)
+                    os._exit(0)
+                kids.append(pid)
+            return f"spawned {len(kids)} processes (!)"
+        except Exception as e:  # noqa: BLE001
+            return f"blocked after {len(kids)} processes: {type(e).__name__}"
+        finally:
+            for k in kids:
+                try:
+                    os.kill(k, signal.SIGKILL)
+                    os.waitpid(k, 0)
+                except Exception:  # noqa: BLE001
+                    pass
+    add("fork bomb (2000 processes)", fork_bomb)
+
+    def disk_fill():
+        n = 0
+        try:
+            with open("/tmp/fill.bin", "wb") as f:
+                blk = b"\0" * (16 << 20)
+                for _ in range(200):  # try 3.2 GB
+                    f.write(blk)
+                    f.flush()
+                    n += 16
+            return f"wrote {n} MB (!)"
+        except Exception as e:  # noqa: BLE001
+            return f"blocked at {n} MB: {type(e).__name__}"
+        finally:
+            try:
+                os.remove("/tmp/fill.bin")
+            except Exception:  # noqa: BLE001
+                pass
+    add("fill the disk (3.2 GB into /tmp)", disk_fill)
+    return res
+
+
+def rt_oom():
+    """Red-team tier 2b: allocate 4 GB of RAM. The container's memory cap must stop it."""
+    hog, mb = [], 0
+    log("oom: allocating")
+    for _ in range(256):
+        hog.append(bytearray(16 << 20))
+        mb += 16
+        if mb % 256 == 0:
+            log(f"oom: {mb} MB")
+    return {"allocated_mb": mb}
+
+
 def main():
     spec = json.loads(base64.b64decode(os.environ["JOB_SPEC"]).decode())
+    mode = spec.get("redteam")
+    if mode:
+        out = {"mode": mode, "uid": os.getuid() if hasattr(os, "getuid") else None}
+        if mode == "hang":
+            log("hang: sleeping forever")
+            while True:
+                time.sleep(60)
+        if mode == "oom":
+            out["oom"] = rt_oom()
+        elif mode == "rce":
+            out["probes"] = rt_rce()
+        else:
+            with sync_playwright() as p:
+                out["pages"] = rt_crash(p, spec) if mode == "crash" else rt_pages(p, spec)
+        print(RESULT_MARK + json.dumps(out, ensure_ascii=False), flush=True)
+        return
+
     net = {"requests": {}, "failed": [], "popups": []}
     out = {"pages": [], "bare": None, "net": net, "env": {
         "uid": os.getuid() if hasattr(os, "getuid") else None,

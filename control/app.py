@@ -24,6 +24,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 import llm
+import redteam
 import sandbox
 
 ROOT = Path(__file__).parent
@@ -465,6 +466,88 @@ def get_img(jid: str, name: str):
     if not p.exists():
         raise HTTPException(404)
     return FileResponse(p, media_type="image/jpeg")
+
+
+RT_LATEST = DATA.parent / "redteam-latest.json"
+
+
+def run_redteam(job):
+    with SEM:
+        try:
+            job["status"] = "running"
+            event(job, "plan", "done", "Red-team run: 5 fresh sandboxes attack themselves; verdicts come from the proxy log and Docker, "
+                  "not from the sandbox's own word")
+            rt = redteam.run(job, event, injection_findings, DEMO_HOST)
+            event(job, "report", "done" if rt["contained"] == rt["total"] else "error",
+                  f"Contained {rt['contained']}/{rt['total']} attacks · every sandbox destroyed")
+            job["status"] = "done"
+            RT_LATEST.write_text(json.dumps(job, ensure_ascii=False, default=str), encoding="utf-8")
+        except Exception as e:  # noqa: BLE001
+            job["status"] = "error"
+            job["error"] = str(e)
+            event(job, "error", "error", str(e))
+            traceback.print_exc()
+        finally:
+            (DATA / job["id"] / "report.json").write_text(json.dumps(job, ensure_ascii=False, default=str), encoding="utf-8")
+
+
+@app.post("/api/redteam")
+def create_redteam(request: Request):
+    xff = request.headers.get("x-forwarded-for", "")
+    ip = xff.split(",")[-1].strip() if xff else (request.client.host if request.client else "?")
+    now = time.time()
+    with LOCK:
+        RATE[ip] = [t for t in RATE.get(ip, []) if now - t < 3600]
+        if len(RATE[ip]) >= RATE_LIMIT:
+            raise HTTPException(429, f"Limit is {RATE_LIMIT} runs per hour per visitor. Try again later.")
+        RATE[ip].append(now)
+    jid = uuid.uuid4().hex[:12]
+    (DATA / jid).mkdir(parents=True, exist_ok=True)
+    job = {"id": jid, "kind": "redteam", "url": "red-team suite", "host": DEMO_HOST, "script": "lao", "demo": True,
+           "status": "queued", "created": time.time(), "events": [], "containment": [], "model": {}, "net": []}
+    JOBS[jid] = job
+    threading.Thread(target=run_redteam, args=(job,), daemon=True).start()
+    return {"id": jid}
+
+
+@app.get("/api/redteam/latest")
+def redteam_latest():
+    if not RT_LATEST.exists():
+        raise HTTPException(404, "No red-team run yet.")
+    return JSONResponse(json.loads(RT_LATEST.read_text(encoding="utf-8")))
+
+
+def _badge(label, value, color):
+    """Shields-style flat badge, no external service."""
+    from html import escape
+    lw, vw = 7 * len(label) + 12, 7 * len(value) + 12
+    return Response(
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{lw + vw}" height="20" role="img" aria-label="{escape(label)}: {escape(value)}">'
+        f'<rect width="{lw}" height="20" fill="#14123A"/><rect x="{lw}" width="{vw}" height="20" fill="{color}"/>'
+        f'<g fill="#fff" font-family="Verdana,DejaVu Sans,sans-serif" font-size="11" text-anchor="middle">'
+        f'<text x="{lw / 2}" y="14">{escape(label)}</text><text x="{lw + vw / 2}" y="14">{escape(value)}</text></g></svg>',
+        media_type="image/svg+xml", headers={"Cache-Control": "no-cache, max-age=0"})
+
+
+@app.get("/api/jobs/{jid}/badge.svg")
+def job_badge(jid: str):
+    data = json.loads(get_job(jid).body)
+    lang = llm.LANG_NAME.get(data.get("script"), "script")
+    sc = data.get("score") or {}
+    if data.get("status") != "done" or "after" not in sc:
+        return _badge(f"{lang} readiness", data.get("status", "?"), "#6B6890")
+    after = sc["after"]
+    color = "#2F9E7E" if after >= 70 else "#C9922A" if after >= 40 else "#D9455F"
+    return _badge(f"{lang} readiness", f"{sc.get('before')} → {after} (GlyphSweep)", color)
+
+
+@app.get("/api/redteam/badge.svg")
+def redteam_badge():
+    if not RT_LATEST.exists():
+        return _badge("red-team", "not run", "#6B6890")
+    rt = json.loads(RT_LATEST.read_text(encoding="utf-8")).get("redteam") or {}
+    ok = rt.get("contained") == rt.get("total")
+    return _badge("red-team", f"{rt.get('contained')}/{rt.get('total')} attacks contained", "#2F9E7E" if ok else "#D9455F")
 
 
 @app.get("/api/health")

